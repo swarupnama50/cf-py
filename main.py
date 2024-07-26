@@ -1,3 +1,4 @@
+import uuid
 from flask import Flask, request, jsonify
 import requests
 import os
@@ -19,13 +20,13 @@ CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
 @app.route('/create_order', methods=['POST'])
 def create_order():
     data = request.json
-    order_id = data.get('order_id')
+    order_id = data.get('order_id', str(uuid.uuid4()))
     order_amount = data.get('order_amount')
     order_currency = 'INR'
-    customer_id = data.get('customer_id')
-    customer_name = data.get('customer_name')
-    customer_email = data.get('customer_email')
-    customer_phone = data.get('customer_phone')
+    customer_id = data.get('customer_id', 'default_customer_id')
+    customer_name = data.get('customer_name', 'teerkhelo')
+    customer_email = data.get('customer_email', 'teerkhelo@gmail.com')
+    customer_phone = data.get('customer_phone', '9612388891')
 
     headers = {
         'Content-Type': 'application/json',
@@ -107,3 +108,5 @@ def payment_notification():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+

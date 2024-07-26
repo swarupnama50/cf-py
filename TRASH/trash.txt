@@ -1,0 +1,4 @@
+redirect scsreen after payment successfull - https://sandbox.cashfree.com/checkout/billgo/gateway/thankyou/process/ocbxC_1B7f1a569zgHoDnvY9-OSLAbFl3zQh01ULPJ-2CPkZXRWOVUIpayment
+
+
+payment page when click on upi - https://sandbox.cashfree.com/checkout/payment-method/upi/
