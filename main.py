@@ -49,8 +49,6 @@ def create_order():
     response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
     response_data = response.json()
 
-    print(f"API Response: {response_data}")
-
     if response.status_code == 200:
         payment_session_id = response_data.get('payment_session_id', '')
         if payment_session_id:
@@ -101,4 +99,4 @@ def payment_notification():
     return jsonify(data)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)  # Turn off debug mode for production
