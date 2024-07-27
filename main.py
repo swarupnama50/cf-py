@@ -4,8 +4,6 @@ import requests
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
-import urllib.parse
-
 
 load_dotenv()
 
@@ -15,7 +13,6 @@ CORS(app)
 CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
-
 
 @app.route('/create_order', methods=['POST'])
 def create_order():
@@ -45,8 +42,8 @@ def create_order():
             'customer_email': customer_email,
             'customer_phone': customer_phone
         },
-        'return_url': 'http://localhost:5000/payment_response',
-        'notify_url': 'http://localhost:5000/payment_notification'
+        'return_url': 'https://teerkhelo.web.app/payment_response',
+        'notify_url': 'https://teerkhelo.web.app/payment_notification'
     }
 
     response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
@@ -66,9 +63,6 @@ def create_order():
     else:
         return jsonify({'error': response_data.get('message', 'Unknown error occurred')}), response.status_code
 
-
-
-
 @app.route('/initiate_payment', methods=['POST'])
 def initiate_payment():
     data = request.json
@@ -81,7 +75,7 @@ def initiate_payment():
         'order_id': order_id,
         'order_amount': order_amount,
         'order_currency': 'INR',
-        'return_url': 'http://localhost:5000/payment_response',
+        'return_url': 'https://teerkhelo.web.app/payment_response',
     }
 
     response = requests.post(payment_url, json=payload, headers={
@@ -108,5 +102,3 @@ def payment_notification():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
