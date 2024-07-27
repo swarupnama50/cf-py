@@ -12,7 +12,7 @@ CORS(app)
 
 CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
-CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
+CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
 
 @app.route('/create_order', methods=['POST'])
 def create_order():
@@ -69,7 +69,7 @@ def initiate_payment():
     order_id = data.get('order_id')
     order_amount = data.get('order_amount')
 
-    payment_url = "https://sandbox.cashfree.com/checkout"
+    payment_url = "https://api.cashfree.com/checkout"
 
     payload = {
         'order_id': order_id,
