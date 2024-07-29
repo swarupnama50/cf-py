@@ -42,8 +42,10 @@ def create_order():
             'customer_email': customer_email,
             'customer_phone': customer_phone
         },
-        'return_url': 'https://teerkhelo.web.app/payment_response',
-        'notify_url': 'https://teerkhelo.web.app/payment_notification'
+        'order_meta': {
+            'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}',
+            'notify_url': 'https://teerkhelo.web.app/payment_notification'
+        }
     }
 
     response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
@@ -73,7 +75,7 @@ def initiate_payment():
         'order_id': order_id,
         'order_amount': order_amount,
         'order_currency': 'INR',
-        'return_url': 'https://teerkhelo.web.app/payment_response',
+        'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
     }
 
     response = requests.post(payment_url, json=payload, headers={
@@ -88,15 +90,33 @@ def initiate_payment():
     else:
         return jsonify({'error': 'Failed to initiate payment'}), response.status_code
 
-@app.route('/payment_response', methods=['POST'])
+@app.route('/payment_response', methods=['GET'])
 def payment_response():
-    data = request.form.to_dict()
-    return jsonify(data)
+    data = request.args.to_dict()
+    order_id = data.get('order_id')
+
+    # Verify the payment with Cashfree
+    payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
+    headers = {
+        'x-client-id': CASHFREE_APP_ID,
+        'x-client-secret': CASHFREE_SECRET_KEY,
+    }
+
+    verification_response = requests.get(payment_verification_url, headers=headers)
+    verification_data = verification_response.json()
+
+    if verification_response.status_code == 200 and verification_data.get('order_status') == 'PAID':
+        # Payment is verified
+        return jsonify({'message': 'Payment verified', 'order_id': order_id, 'status': 'success'})
+    else:
+        # Payment not verified
+        return jsonify({'message': 'Payment verification failed', 'order_id': order_id, 'status': 'failed'})
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
     data = request.form.to_dict()
-    return jsonify(data)
+    # Handle payment notification, usually updating the order status based on the notification.
+    return jsonify({'message': 'Payment notification received', 'data': data})
 
 if __name__ == '__main__':
     app.run(debug=False)  # Turn off debug mode for production

@@ -8,3 +8,12 @@ payment successfull - https://sandbox.cashfree.com/checkout/billgo/gateway/thank
 
 
 https://sandbox.cashfree.com/checkout/billgo/gateway/thankyou/process/R6u-kqxYaPSN_YVc_2dj8hPog08eYUK-cYmct61mru2C1HsS20BF8lspayment
+
+https://sandbox.cashfree.com/checkout/billgo/gateway/thankyou/process/boB1QQhUCgEY5z6XjnKH7KoIlRCjHewnCaT2pWHdMqEgGb3P3fwc3uUpayment
+
+
+# show serve is live 
+@app.route('/', methods=['GET'])
+def home():
+    # Return a simple text message to indicate the server is live.
+    return "Server is live."
