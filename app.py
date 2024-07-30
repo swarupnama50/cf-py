@@ -43,8 +43,8 @@ def create_order():
             'customer_phone': customer_phone
         },
         'order_meta': {
-            'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}',
-            'notify_url': 'https://teerkhelo.web.app/payment_notification'
+           'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}&status=success',
+          
         }
     }
 
@@ -107,10 +107,20 @@ def payment_response():
 
     if verification_response.status_code == 200 and verification_data.get('order_status') == 'PAID':
         # Payment is verified
-        return jsonify({'message': 'Payment verified', 'order_id': order_id, 'status': 'success'})
+        return jsonify({
+            'message': 'Payment verified',
+            'order_id': order_id,
+            'status': 'success',
+            'redirect_url': 'image_screen'  # Indicate to redirect to ImageScreen
+        })
     else:
         # Payment not verified
-        return jsonify({'message': 'Payment verification failed', 'order_id': order_id, 'status': 'failed'})
+        return jsonify({
+            'message': 'Payment verification failed',
+            'order_id': order_id,
+            'status': 'failed'
+        })
+
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
