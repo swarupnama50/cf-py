@@ -1,0 +1,18 @@
+
+     f'http://localhost:14128/payment_response?order_id={quote(str(order_id))}'
+            f'&status=success'
+            f'&user_name={quote(str(customer_name))}'
+            f'&user_mobile_number={quote(str(customer_phone))}'
+            f'&total_amount={quote(str(data.get("total_amount", "")))}'
+            f'&selected_numbers={quote(json.dumps(data.get("selected_numbers", [])))}'
+            f'&selected_ranges={quote(json.dumps(data.get("selected_ranges", [])))}'
+            f'&hou_heda_values={quote(json.dumps(data.get("hou_heda_values", {})))}'
+            f'&hou_jeda_values={quote(json.dumps(data.get("hou_jeda_values", {})))}'
+            f'&f_r_amounts={quote(json.dumps([0 if v is None else v for v in data.get("f_r_amounts", [])]))}'
+            f'&s_r_amounts={quote(json.dumps([0 if v is None else v for v in data.get("s_r_amounts", [])]))}'
+            f'&f_hou_amount={quote(str(data.get("f_hou_amount", "")))}'
+            f'&s_hou_amount={quote(str(data.get("s_hou_amount", "")))}'
+
+
+
+

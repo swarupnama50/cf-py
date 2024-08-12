@@ -1,10 +1,9 @@
+import uuid
 from flask import Flask, request, jsonify
 import requests
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
-import urllib.parse
-
 
 load_dotenv()
 
@@ -15,17 +14,16 @@ CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
 
-
 @app.route('/create_order', methods=['POST'])
 def create_order():
     data = request.json
-    order_id = data.get('order_id')
+    order_id = data.get('order_id', str(uuid.uuid4()))
     order_amount = data.get('order_amount')
     order_currency = 'INR'
-    customer_id = data.get('customer_id')
-    customer_name = data.get('customer_name')
-    customer_email = data.get('customer_email')
-    customer_phone = data.get('customer_phone')
+    customer_id = data.get('customer_id', 'default_customer_id')
+    customer_name = data.get('customer_name', 'teerkhelo')
+    customer_email = data.get('customer_email', 'teerkhelo@gmail.com')
+    customer_phone = data.get('customer_phone', '9612388891')
 
     headers = {
         'Content-Type': 'application/json',
@@ -44,14 +42,14 @@ def create_order():
             'customer_email': customer_email,
             'customer_phone': customer_phone
         },
-        'return_url': 'http://localhost:5000/payment_response',
-        'notify_url': 'http://localhost:5000/payment_notification'
+        'order_meta': {
+           'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}&status=success',
+          
+        }
     }
 
     response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
     response_data = response.json()
-
-    print(f"API Response: {response_data}")
 
     if response.status_code == 200:
         payment_session_id = response_data.get('payment_session_id', '')
@@ -65,9 +63,6 @@ def create_order():
     else:
         return jsonify({'error': response_data.get('message', 'Unknown error occurred')}), response.status_code
 
-
-
-
 @app.route('/initiate_payment', methods=['POST'])
 def initiate_payment():
     data = request.json
@@ -80,7 +75,7 @@ def initiate_payment():
         'order_id': order_id,
         'order_amount': order_amount,
         'order_currency': 'INR',
-        'return_url': 'http://localhost:5000/payment_response',
+        'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
     }
 
     response = requests.post(payment_url, json=payload, headers={
@@ -95,15 +90,43 @@ def initiate_payment():
     else:
         return jsonify({'error': 'Failed to initiate payment'}), response.status_code
 
-@app.route('/payment_response', methods=['POST'])
+@app.route('/payment_response', methods=['GET'])
 def payment_response():
-    data = request.form.to_dict()
-    return jsonify(data)
+    data = request.args.to_dict()
+    order_id = data.get('order_id')
+
+    # Verify the payment with Cashfree
+    payment_verification_url = f'https://sandbox.cashfree.com/pg/orders/{order_id}'
+    headers = {
+        'x-client-id': CASHFREE_APP_ID,
+        'x-client-secret': CASHFREE_SECRET_KEY,
+    }
+
+    verification_response = requests.get(payment_verification_url, headers=headers)
+    verification_data = verification_response.json()
+
+    if verification_response.status_code == 200 and verification_data.get('order_status') == 'PAID':
+        # Payment is verified
+        return jsonify({
+            'message': 'Payment verified',
+            'order_id': order_id,
+            'status': 'success',
+            'redirect_url': 'image_screen'  # Indicate to redirect to ImageScreen
+        })
+    else:
+        # Payment not verified
+        return jsonify({
+            'message': 'Payment verification failed',
+            'order_id': order_id,
+            'status': 'failed'
+        })
+
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
     data = request.form.to_dict()
-    return jsonify(data)
+    # Handle payment notification, usually updating the order status based on the notification.
+    return jsonify({'message': 'Payment notification received', 'data': data})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)  # Turn off debug mode for production
