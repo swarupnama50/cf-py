@@ -9,7 +9,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
 
-
 # Read and decode the Firebase key
 firebase_key_base64 = os.getenv('FIREBASE_KEY_BASE64')
 if firebase_key_base64:
@@ -18,7 +17,6 @@ if firebase_key_base64:
     firebase_admin.initialize_app(cred)
 else:
     raise ValueError("FIREBASE_KEY_BASE64 environment variable is not set")
-
 
 db = firestore.client()
 
@@ -32,8 +30,6 @@ CORS(app)
 CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
-
-
 
 @app.route('/create_order', methods=['POST'])
 def create_order():
@@ -95,8 +91,8 @@ def create_order():
                     orders_ref.set(orderData, merge=True)
                     logging.info(f"Order {order_id} updated with status: pending")
 
-                      # Call update_order_status with the phone number
-                    update_order_status(user_phone_number, order_id, 'Order Completed')
+                    # Call update_order_status with the correct parameters
+                    update_order_status(order_id, 'Order Completed')
 
                 except Exception as e:
                     logging.error(f"Error updating Firestore: {e}")
@@ -113,7 +109,6 @@ def create_order():
     except Exception as e:
         logging.error(f"Exception occurred: {e}")
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
-
 
 @app.route('/initiate_payment', methods=['POST'])
 def initiate_payment():
@@ -210,7 +205,6 @@ def get_user_phone_number_from_order(order_id):
         logging.error(f"Error retrieving user phone number: {e}")
         return None
 
-
 def update_order_status(order_id, status):
     try:
         user_phone_number = get_user_phone_number_from_order(order_id)
@@ -227,7 +221,6 @@ def update_order_status(order_id, status):
 
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
-
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
