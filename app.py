@@ -11,20 +11,16 @@ import base64
 
 
 
+# Read and decode the Firebase key
 firebase_key_base64 = os.getenv('FIREBASE_KEY_BASE64')
-if firebase_key_base64 is None:
-    logging.error("FIREBASE_KEY_BASE64 environment variable is not set")
-else:
-    logging.debug(f"FIREBASE_KEY_BASE64: {firebase_key_base64[:20]}...")  # Log part of the key for verification
-
-try:
+if firebase_key_base64:
     firebase_key_json = base64.b64decode(firebase_key_base64).decode('utf-8')
     cred = credentials.Certificate(json.loads(firebase_key_json))
     firebase_admin.initialize_app(cred)
-except Exception as e:
-    logging.error(f"Error initializing Firebase: {e}")
+else:
+    raise ValueError("FIREBASE_KEY_BASE64 environment variable is not set")
 
-    
+
 db = firestore.client()
 
 load_dotenv()
