@@ -78,21 +78,18 @@ def create_order():
                 # Create order data for Firestore
                 orderData = {
                     "order_id": order_id,
-                    "payment_status": "pending"  # Add payment_status field here
+                    "payment_status": "pending"  # Initialize payment_status field
                 }
 
                 # Save to Firestore
                 try:
-                    user_phone_number = data.get('customer_phone')  # Assuming phone number is provided in the request
-                    user_ref = db.collection('users').document(user_phone_number)
-                    orders_ref = user_ref.collection('orders').document(order_id)
-
-                    # Update the order status
+                    # Assuming the orders collection is directly under Firestore
+                    orders_ref = db.collection('orders').document(order_id)
                     orders_ref.set(orderData, merge=True)
-                    logging.info(f"Order {order_id} updated with status: pending")
+                    logging.info(f"Order {order_id} created with status: pending")
 
-                    # Call update_order_status with the correct parameters
-                    update_order_status(order_id, 'Order Completed')
+                    # Optionally, you can update the status here if needed
+                    # update_order_status(order_id, 'pending')
 
                 except Exception as e:
                     logging.error(f"Error updating Firestore: {e}")
@@ -109,6 +106,7 @@ def create_order():
     except Exception as e:
         logging.error(f"Exception occurred: {e}")
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
+
 
 @app.route('/initiate_payment', methods=['POST'])
 def initiate_payment():
@@ -187,40 +185,18 @@ def webhook():
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-def get_user_phone_number_from_order(order_id):
-    try:
-        orders_ref = db.collection('orders')
-        order_doc = orders_ref.document(order_id).get()
-
-        if order_doc.exists:
-            order_data = order_doc.to_dict()
-            user_phone_number = order_data.get('customer_phone')
-            if not user_phone_number:
-                logging.error(f"User phone number not found in order {order_id}")
-            return user_phone_number
-        else:
-            logging.error(f"Order {order_id} not found.")
-            return None
-    except Exception as e:
-        logging.error(f"Error retrieving user phone number: {e}")
-        return None
 
 def update_order_status(order_id, status):
     try:
-        user_phone_number = get_user_phone_number_from_order(order_id)
-
-        if user_phone_number:
-            user_ref = db.collection('users').document(user_phone_number)
-            orders_ref = user_ref.collection('orders').document(order_id)
-
-            # Update the order status
-            orders_ref.update({'payment_status': status})
-            logging.info(f"Order {order_id} updated with payment status: {status}")
-        else:
-            logging.error(f"Cannot update order {order_id}: user phone number not found.")
+        # Reference to the orders collection
+        orders_ref = db.collection('orders')
+        # Update the specific order document
+        orders_ref.document(order_id).update({'payment_status': status})
+        logging.info(f"Order {order_id} updated with payment status: {status}")
 
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
+
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
