@@ -95,6 +95,9 @@ def create_order():
                     orders_ref.set(orderData, merge=True)
                     logging.info(f"Order {order_id} updated with status: pending")
 
+                      # Call update_order_status with the phone number
+                    update_order_status(user_phone_number, order_id, 'Order Completed')
+
                 except Exception as e:
                     logging.error(f"Error updating Firestore: {e}")
 
@@ -171,41 +174,60 @@ def payment_response():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.get_json()
-    event_type = data.get('event_type')
-    order_id = data.get('order_id')
-
-    if not order_id:
-        return jsonify({'error': 'Order ID not provided'}), 400
-
     try:
-        if event_type == 'payment_success':
-            update_order_status(order_id, 'Order Completed')
-        elif event_type == 'order_canceled':
-            update_order_status(order_id, 'Order Cancelled')
+        data = request.json
+        order_id = data.get('order_id')
+        payment_status = data.get('payment_status')
+        
+        if payment_status == 'SUCCESS':  # Adjust based on your payment gateway's success status
+            # Update the order status in Firebase
+            orders_ref = db.collection('orders')
+            order_ref = orders_ref.document(order_id)
+            order_ref.update({'payment_status': 'Order Completed'})
+            return jsonify({'status': 'success'}), 200
         else:
-            logging.warning(f"Unhandled event type: {event_type}")
-            return jsonify({'error': 'Unhandled event type'}), 400
-
-        return jsonify({'message': 'Webhook processed successfully'}), 200
+            return jsonify({'status': 'pending'}), 200
 
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+def get_user_phone_number_from_order(order_id):
+    try:
+        orders_ref = db.collection('orders')
+        order_doc = orders_ref.document(order_id).get()
+
+        if order_doc.exists:
+            order_data = order_doc.to_dict()
+            user_phone_number = order_data.get('customer_phone')
+            if not user_phone_number:
+                logging.error(f"User phone number not found in order {order_id}")
+            return user_phone_number
+        else:
+            logging.error(f"Order {order_id} not found.")
+            return None
+    except Exception as e:
+        logging.error(f"Error retrieving user phone number: {e}")
+        return None
+
+
 def update_order_status(order_id, status):
     try:
-        user_phone_number = 'replace_with_actual_phone_number'  # Replace with actual logic
+        user_phone_number = get_user_phone_number_from_order(order_id)
 
-        user_ref = db.collection('users').document(user_phone_number)
-        orders_ref = user_ref.collection('orders').document(order_id)
+        if user_phone_number:
+            user_ref = db.collection('users').document(user_phone_number)
+            orders_ref = user_ref.collection('orders').document(order_id)
 
-        # Update the order status
-        orders_ref.update({'payment_status': status})
-        logging.info(f"Order {order_id} updated with payment status: {status}")
+            # Update the order status
+            orders_ref.update({'payment_status': status})
+            logging.info(f"Order {order_id} updated with payment status: {status}")
+        else:
+            logging.error(f"Cannot update order {order_id}: user phone number not found.")
 
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
+
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
