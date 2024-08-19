@@ -7,13 +7,14 @@ from flask_cors import CORS
 import logging
 import firebase_admin
 from firebase_admin import credentials, firestore
+import base64
 
 
 
-firebase_key_path = os.getenv('FIREBASE_KEY_PATH', 'config/teerkhelo-firebase-adminsdk-grjrx-b9583b7aa3.json')
-if not firebase_admin._apps:
-    cred = credentials.Certificate(firebase_key_path)
-    firebase_admin.initialize_app(cred)
+firebase_key_base64 = os.getenv('FIREBASE_KEY_BASE64')
+firebase_key_json = base64.b64decode(firebase_key_base64).decode('utf-8')
+cred = credentials.Certificate(json.loads(firebase_key_json))
+firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 load_dotenv()
