@@ -4,13 +4,13 @@ import requests
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
-from urllib.parse import quote
 import logging
-# import uuid
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 load_dotenv()
 
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 CORS(app)
@@ -19,8 +19,10 @@ CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
 
-# In-memory storage for demo purposes; use a database in production
-order_data_store = {}
+# Initialize Firebase
+cred = credentials.Certificate('path/to/your/key.json')
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
 @app.route('/create_order', methods=['POST'])
 def create_order():
@@ -32,35 +34,8 @@ def create_order():
         if not order_id:
             logging.error("Order ID is missing in the request data")
             return jsonify({'error': 'Order ID is required'}), 400
-
-        # Save the payment details
-        # logging.info(f"Saving payment details for orderId: {order_id}")
-        # logging.debug(f"Payment details: {data}")
-
-        # order_amount = data.get('order_amount')
-        # if not order_amount:
-        #    logging.error("Order amount is missing in the request data")
-        #    return jsonify({'error': 'Order amount is required'}), 400
-
-        # Generate a unique reference ID for storing large data
-        # data_reference_id = str(uuid.uuid4())
-        # order_data_store[data_reference_id] = {
-        #     'selected_numbers': data.get("selected_numbers", []),
-        #     'selected_ranges': data.get("selected_ranges", []),
-        #     'hou_heda_values': data.get("hou_heda_values", {}),
-        #     'hou_jeda_values': data.get("hou_jeda_values", {}),
-        #     'f_r_amounts': data.get("f_r_amounts", []),
-        #     's_r_amounts': data.get("s_r_amounts", []),
-        # }
-
-        return_url = (
-            f'https://teerkhelo.web.app/payment_response?order_id={quote(str(order_id))}'
-            f'&status=success'
-            # f'&user_name={quote(str(data.get("customer_name", "")))}'
-            # f'&user_mobile_number={quote(str(data.get("customer_phone", "")))}'
-            # f'&total_amount={quote(str(data.get("total_amount", "")))}'
-            # f'&data_reference_id={quote(data_reference_id)}'
-        )
+        
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
 
         headers = {
             'Content-Type': 'application/json',
@@ -93,6 +68,25 @@ def create_order():
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
             if payment_session_id:
+                # Create order data for Firestore
+                orderData = {
+                    "order_id": order_id,
+                    "payment_status": "pending"  # Add payment_status field here
+                }
+
+                # Save to Firestore
+                try:
+                    user_phone_number = data.get('customer_phone')  # Assuming phone number is provided in the request
+                    user_ref = db.collection('users').document(user_phone_number)
+                    orders_ref = user_ref.collection('orders').document(order_id)
+
+                    # Update the order status
+                    orders_ref.set(orderData, merge=True)
+                    logging.info(f"Order {order_id} updated with status: pending")
+
+                except Exception as e:
+                    logging.error(f"Error updating Firestore: {e}")
+
                 return jsonify({
                     'order_id': order_id,
                     'payment_session_id': payment_session_id
@@ -138,19 +132,9 @@ def initiate_payment():
 def payment_response():
     data = request.args.to_dict()
     order_id = data.get('order_id')
-    user_name = data.get('user_name')
-    user_mobile_number = data.get('user_mobile_number')
-    data_reference_id = data.get('data_reference_id')
-
-    # Retrieve stored data using the reference ID
-    stored_data = order_data_store.get(data_reference_id, {})
-
-    # Debug logging
-    logging.debug(f"Received data: {data}")
-    logging.debug(f"Stored data: {stored_data}")
 
     # Verify the payment with Cashfree
-    payment_verification_url = f'https://teerkhelo.web.app/pg/orders/{order_id}'
+    payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
     headers = {
         'x-client-id': CASHFREE_APP_ID,
         'x-client-secret': CASHFREE_SECRET_KEY,
@@ -160,36 +144,63 @@ def payment_response():
     verification_data = verification_response.json()
 
     if verification_response.status_code == 200 and verification_data.get('order_status') == 'PAID':
-        # Payment is verified
+        # Payment is verified, update order status
+        update_order_status(order_id, 'Order Completed')
         return jsonify({
             'message': 'Payment verified',
             'order_id': order_id,
-            'status': 'success',
             'redirect_url': 'image_screen',
-            # 'user_name': user_name,
-            # 'user_mobile_number': user_mobile_number,
-            # 'selected_numbers': stored_data.get('selected_numbers', []),
-            # 'selected_ranges': stored_data.get('selected_ranges', []),
-            # 'hou_heda_values': stored_data.get('hou_heda_values', {}),
-            # 'hou_jeda_values': stored_data.get('hou_jeda_values', {}),
-            # 'f_r_amounts': stored_data.get('f_r_amounts', []),
-            # 's_r_amounts': stored_data.get('s_r_amounts', [])
         })
     else:
         # Payment not verified
         return jsonify({
             'message': 'Payment verification failed',
             'order_id': order_id,
-            'status': 'failed'
         })
 
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.get_json()
+    event_type = data.get('event_type')
+    order_id = data.get('order_id')
+
+    if not order_id:
+        return jsonify({'error': 'Order ID not provided'}), 400
+
+    try:
+        if event_type == 'payment_success':
+            update_order_status(order_id, 'Order Completed')
+        elif event_type == 'order_canceled':
+            update_order_status(order_id, 'Order Cancelled')
+        else:
+            logging.warning(f"Unhandled event type: {event_type}")
+            return jsonify({'error': 'Unhandled event type'}), 400
+
+        return jsonify({'message': 'Webhook processed successfully'}), 200
+
+    except Exception as e:
+        logging.error(f"Error processing webhook: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+def update_order_status(order_id, status):
+    try:
+        user_phone_number = 'replace_with_actual_phone_number'  # Replace with actual logic
+
+        user_ref = db.collection('users').document(user_phone_number)
+        orders_ref = user_ref.collection('orders').document(order_id)
+
+        # Update the order status
+        orders_ref.update({'payment_status': status})
+        logging.info(f"Order {order_id} updated with payment status: {status}")
+
+    except Exception as e:
+        logging.error(f"Error updating order status: {e}")
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
     data = request.form.to_dict()
-    # Handle payment notification, usually updating the order status based on the notification.
+   
     return jsonify({'message': 'Payment notification received', 'data': data})
 
 if __name__ == '__main__':
-    app.run(debug=False, ) # Turn off debug mode for production
-# host='127.0.0.1', port=5000
+    app.run(debug=False, host='127.0.0.1', port=5000)
