@@ -10,7 +10,6 @@ from firebase_admin import credentials, firestore
 import base64
 
 
-
 # Read and decode the Firebase key
 firebase_key_base64 = os.getenv('FIREBASE_KEY_BASE64')
 if firebase_key_base64:
