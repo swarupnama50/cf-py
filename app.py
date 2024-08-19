@@ -20,7 +20,8 @@ CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
 
 # Initialize Firebase
-cred = credentials.Certificate('path/to/your/key.json')
+cred = credentials.Certificate(r'C:\NT Python\teerkhelo-firebase-adminsdk-grjrx-b9583b7aa3.json')
+
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
