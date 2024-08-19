@@ -18,12 +18,19 @@ CORS(app)
 CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
+
+
+# Firebase credentials path
 firebase_key_path = os.getenv('FIREBASE_KEY_PATH', 'config/teerkhelo-firebase-adminsdk-grjrx-b9583b7aa3.json')
 
-
 # Initialize Firebase
-firebase_key_path = os.getenv('FIREBASE_KEY_PATH')
+if not firebase_admin._apps:
+    cred = credentials.Certificate(firebase_key_path)
+    firebase_admin.initialize_app(cred)
+
+# Initialize Firestore
 db = firestore.client()
+
 
 @app.route('/create_order', methods=['POST'])
 def create_order():
