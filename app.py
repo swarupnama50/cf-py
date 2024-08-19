@@ -78,18 +78,18 @@ def create_order():
                 # Create order data for Firestore
                 orderData = {
                     "order_id": order_id,
-                    "payment_status": "pending"  # Initialize payment_status field
+                    "payment_status": "pending"  # Add payment_status field here
                 }
 
                 # Save to Firestore
                 try:
-                    # Assuming the orders collection is directly under Firestore
-                    orders_ref = db.collection('orders').document(order_id)
-                    orders_ref.set(orderData, merge=True)
-                    logging.info(f"Order {order_id} created with status: pending")
+                    user_phone_number = data.get('customer_phone')  # Assuming phone number is provided in the request
+                    user_ref = db.collection('users').document(user_phone_number)
+                    orders_ref = user_ref.collection('orders').document(order_id)
 
-                    # Optionally, you can update the status here if needed
-                    # update_order_status(order_id, 'pending')
+                    # Update the order status
+                    orders_ref.set(orderData, merge=True)
+                    logging.info(f"Order {order_id} updated with status: pending")
 
                 except Exception as e:
                     logging.error(f"Error updating Firestore: {e}")
