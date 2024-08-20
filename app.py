@@ -36,8 +36,8 @@ def create_order():
     try:
         data = request.json
         order_id = data.get('order_id')
+        user_phone_number = data.get('customer_phone')
 
-        # Your return and notify URLs
         return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py.onrender.com/webhook'
 
@@ -56,7 +56,7 @@ def create_order():
                 'customer_id': data.get('customer_id', 'default_customer_id'),
                 'customer_name': data.get('customer_name'),
                 'customer_email': data.get('customer_email'),
-                'customer_phone': data.get('customer_phone')
+                'customer_phone': user_phone_number
             },
             'order_meta': {
                 'return_url': return_url,
@@ -71,14 +71,16 @@ def create_order():
             payment_session_id = response_data.get('payment_session_id', '')
 
             # Save order data to Firestore
-            orderData = {
-                "order_id": order_id,
-                "payment_status": "pending"
+            order_data = {
+                'order_id': order_id,
+                'status': 'pending',
+                'order_ref': f'orders/{order_id}',
+                'order_time': data.get('order_time'),
+                'payment_status': 'pending'
             }
-            user_phone_number = data.get('customer_phone')
             user_ref = db.collection('users').document(user_phone_number)
             orders_ref = user_ref.collection('orders').document(order_id)
-            orders_ref.set(orderData, merge=True)
+            orders_ref.set(order_data, merge=True)
 
             return jsonify({
                 'order_id': order_id,
@@ -89,6 +91,7 @@ def create_order():
 
     except Exception as e:
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
+
 
 
 
@@ -155,33 +158,37 @@ def payment_response():
 def webhook():
     try:
         data = request.json
-        logging.debug(f"Received webhook data: {data}")  # Log the received data
+        logging.debug(f"Received webhook data: {data}")
 
-        # Extracting nested values
         order_id = data.get('data', {}).get('order', {}).get('order_id')
         payment_status = data.get('data', {}).get('payment', {}).get('payment_status')
-        user_phone_number = data.get('data', {}).get('order', {}).get('customer_phone')  # Assuming phone number is included here
+        customer_phone = data.get('data', {}).get('customer_details', {}).get('customer_phone')
 
-        if not order_id:
-            logging.error("order_id is missing in the webhook data.")
-        if not payment_status:
-            logging.error("payment_status is missing in the webhook data.")
-            return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
-        if not user_phone_number:
-            logging.error("customer_phone is missing in the webhook data.")
+        if not order_id or not payment_status or not customer_phone:
+            logging.error("Required data is missing in the webhook.")
             return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
 
-        # Process the payment status
+        # Update the payment status
         if payment_status == 'SUCCESS':
-            update_order_status(order_id, 'Order Completed', user_phone_number)
+            update_order_status(order_id, 'Order Completed', customer_phone)
         else:
-            update_order_status(order_id, payment_status.capitalize(), user_phone_number)
+            update_order_status(order_id, payment_status.capitalize(), customer_phone)
 
         return jsonify({'status': 'success'}), 200
 
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+def update_order_status(order_id, status, user_phone_number):
+    try:
+        # Update the specific order document under the user's document
+        orders_ref = db.collection('users').document(user_phone_number)
+        orders_ref.collection('orders').document(order_id).update({'payment_status': status})
+        logging.info(f"Order {order_id} updated with payment status: {status}")
+    except Exception as e:
+        logging.error(f"Error updating order status: {e}")
+
 
 
 
