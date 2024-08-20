@@ -75,12 +75,15 @@ def create_order():
                 'order_id': order_id,
                 'status': 'pending',
                 'order_ref': f'orders/{order_id}',
-                'order_time': data.get('order_time'),
+                'order_time': data.get('order_time'),  # Ensure order_time is available
                 'payment_status': 'pending'
             }
             user_ref = db.collection('users').document(user_phone_number)
-            orders_ref = user_ref.collection('orders').document(order_id)
-            orders_ref.set(order_data, merge=True)
+            user_ref.set({
+                'orders': {
+                    order_id: order_data
+                }
+            }, merge=True)
 
             return jsonify({
                 'order_id': order_id,
@@ -91,6 +94,7 @@ def create_order():
 
     except Exception as e:
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
+
 
 
 
@@ -179,31 +183,20 @@ def webhook():
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+
 
 def update_order_status(order_id, status, user_phone_number):
     try:
         # Update the specific order document under the user's document
-        orders_ref = db.collection('users').document(user_phone_number)
-        orders_ref.collection('orders').document(order_id).update({'payment_status': status})
+        user_ref = db.collection('users').document(user_phone_number)
+        user_ref.update({
+            f'orders.{order_id}.payment_status': status
+        })
         logging.info(f"Order {order_id} updated with payment status: {status}")
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
 
-
-
-
-
-
-
-def update_order_status(order_id, status, user_phone_number):
-    try:
-        # Reference to the specific order document under the user's document
-        orders_ref = db.collection('users').document(user_phone_number).collection('orders')
-        order_ref = orders_ref.document(order_id)
-        order_ref.update({'payment_status': status})
-        logging.info(f"Order {order_id} updated with payment status: {status}")
-    except Exception as e:
-        logging.error(f"Error updating order status: {e}")
 
 
 
