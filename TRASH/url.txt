@@ -5,3 +5,5 @@ http://localhost:1120/
 http://127.0.0.1:5000
 
 https://cf-py.onrender.com
+
+https://cf-py.onrender.com/webhook

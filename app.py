@@ -35,14 +35,11 @@ CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
 def create_order():
     try:
         data = request.json
-        logging.debug(f"Received data: {data}")
-
         order_id = data.get('order_id')
-        if not order_id:
-            logging.error("Order ID is missing in the request data")
-            return jsonify({'error': 'Order ID is required'}), 400
-        
+
+        # Your return and notify URLs
         return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+        notify_url = 'https://cf-py.onrender.com/webhook'
 
         headers = {
             'Content-Type': 'application/json',
@@ -62,50 +59,37 @@ def create_order():
                 'customer_phone': data.get('customer_phone')
             },
             'order_meta': {
-                'return_url': return_url
+                'return_url': return_url,
+                'notify_url': notify_url
             }
         }
 
-        logging.debug(f"Payload: {payload}")
         response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
         response_data = response.json()
 
-        logging.debug(f"Response: {response_data}")
-
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
-            if payment_session_id:
-                # Create order data for Firestore
-                orderData = {
-                    "order_id": order_id,
-                    "payment_status": "pending"  # Add payment_status field here
-                }
 
-                # Save to Firestore
-                try:
-                    user_phone_number = data.get('customer_phone')  # Assuming phone number is provided in the request
-                    user_ref = db.collection('users').document(user_phone_number)
-                    orders_ref = user_ref.collection('orders').document(order_id)
+            # Save order data to Firestore
+            orderData = {
+                "order_id": order_id,
+                "payment_status": "pending"
+            }
+            user_phone_number = data.get('customer_phone')
+            user_ref = db.collection('users').document(user_phone_number)
+            orders_ref = user_ref.collection('orders').document(order_id)
+            orders_ref.set(orderData, merge=True)
 
-                    # Update the order status
-                    orders_ref.set(orderData, merge=True)
-                    logging.info(f"Order {order_id} updated with status: pending")
-
-                except Exception as e:
-                    logging.error(f"Error updating Firestore: {e}")
-
-                return jsonify({
-                    'order_id': order_id,
-                    'payment_session_id': payment_session_id
-                })
-            else:
-                return jsonify({'error': 'Payment session ID not found'}), 500
+            return jsonify({
+                'order_id': order_id,
+                'payment_session_id': payment_session_id
+            })
         else:
             return jsonify({'error': response_data.get('message', 'Unknown error occurred')}), response.status_code
 
     except Exception as e:
-        logging.error(f"Exception occurred: {e}")
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
+
 
 
 @app.route('/initiate_payment', methods=['POST'])
@@ -120,7 +104,8 @@ def initiate_payment():
         'order_id': order_id,
         'order_amount': order_amount,
         'order_currency': 'INR',
-        'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+        'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}',
+        # 'notify_url': 'https://cf-py.onrender.com/webhook'
     }
 
     response = requests.post(payment_url, json=payload, headers={
@@ -170,20 +155,21 @@ def webhook():
     try:
         data = request.json
         order_id = data.get('order_id')
-        payment_status = data.get('payment_status')
-        
-        if payment_status == 'SUCCESS':  # Adjust based on your payment gateway's success status
-            # Update the order status in Firebase
-            orders_ref = db.collection('orders')
-            order_ref = orders_ref.document(order_id)
-            order_ref.update({'payment_status': 'Order Completed'})
-            return jsonify({'status': 'success'}), 200
+        payment_status = data.get('order_status')
+
+        if payment_status == 'PAID':
+            # Update the order status in Firestore
+            update_order_status(order_id, 'Order Completed')
         else:
-            return jsonify({'status': 'pending'}), 200
+            # Handle other statuses like FAILED, CANCELLED, etc.
+            update_order_status(order_id, payment_status.capitalize())
+
+        return jsonify({'status': 'success'}), 200
 
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
 
 
 def update_order_status(order_id, status):
@@ -200,9 +186,27 @@ def update_order_status(order_id, status):
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
-    data = request.form.to_dict()
-   
-    return jsonify({'message': 'Payment notification received', 'data': data})
+    try:
+        data = request.json
+        order_id = data.get('order_id')
+        payment_status = data.get('payment_status')
+
+        if order_id and payment_status:
+            if payment_status == 'SUCCESS':
+                # Update the order status in Firestore
+                orders_ref = db.collection('orders')
+                order_ref = orders_ref.document(order_id)
+                order_ref.update({'payment_status': 'Order Completed'})
+                return jsonify({'status': 'success', 'message': 'Payment status updated'}), 200
+            else:
+                # Handle other statuses or errors as needed
+                return jsonify({'status': 'failure', 'message': 'Payment not successful'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
+    except Exception as e:
+        logging.error(f"Error processing payment notification: {e}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=False, host='127.0.0.1', port=5000)
