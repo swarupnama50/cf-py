@@ -150,20 +150,26 @@ def payment_response():
             'order_id': order_id,
         })
 
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
         data = request.json
+        logging.debug(f"Received webhook data: {data}")  # Log the received data
+        
         order_id = data.get('order_id')
         payment_status = data.get('order_status')
 
-        if payment_status:
-            # Update the order status in Firestore
-            update_order_status(order_id, payment_status.capitalize())
+        if not order_id:
+            logging.error("order_id is missing in the webhook data.")
+        if not payment_status:
+            logging.error("payment_status is missing in the webhook data.")
+            return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
+
+        if payment_status == 'PAID':
+            update_order_status(order_id, 'Order Completed')
         else:
-            # Log and handle the case where payment_status is None
-            logging.error(f"Received webhook with NoneType payment_status for order_id: {order_id}")
-            return jsonify({'error': 'Invalid payment status received'}), 400
+            update_order_status(order_id, payment_status.capitalize())
 
         return jsonify({'status': 'success'}), 200
 
