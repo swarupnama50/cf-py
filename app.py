@@ -160,18 +160,22 @@ def webhook():
         # Extracting nested values
         order_id = data.get('data', {}).get('order', {}).get('order_id')
         payment_status = data.get('data', {}).get('payment', {}).get('payment_status')
+        user_phone_number = data.get('data', {}).get('order', {}).get('customer_phone')  # Assuming phone number is included here
 
         if not order_id:
             logging.error("order_id is missing in the webhook data.")
         if not payment_status:
             logging.error("payment_status is missing in the webhook data.")
             return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
+        if not user_phone_number:
+            logging.error("customer_phone is missing in the webhook data.")
+            return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
 
         # Process the payment status
         if payment_status == 'SUCCESS':
-            update_order_status(order_id, 'Order Completed')
+            update_order_status(order_id, 'Order Completed', user_phone_number)
         else:
-            update_order_status(order_id, payment_status.capitalize())
+            update_order_status(order_id, payment_status.capitalize(), user_phone_number)
 
         return jsonify({'status': 'success'}), 200
 
@@ -183,16 +187,17 @@ def webhook():
 
 
 
-def update_order_status(order_id, status):
-    try:
-        # Reference to the orders collection
-        orders_ref = db.collection('orders')
-        # Update the specific order document
-        orders_ref.document(order_id).update({'payment_status': status})
-        logging.info(f"Order {order_id} updated with payment status: {status}")
 
+def update_order_status(order_id, status, user_phone_number):
+    try:
+        # Reference to the specific order document under the user's document
+        orders_ref = db.collection('users').document(user_phone_number).collection('orders')
+        order_ref = orders_ref.document(order_id)
+        order_ref.update({'payment_status': status})
+        logging.info(f"Order {order_id} updated with payment status: {status}")
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
+
 
 
 @app.route('/payment_notification', methods=['POST'])
