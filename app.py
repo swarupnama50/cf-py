@@ -156,9 +156,10 @@ def webhook():
     try:
         data = request.json
         logging.debug(f"Received webhook data: {data}")  # Log the received data
-        
-        order_id = data.get('order_id')
-        payment_status = data.get('order_status')
+
+        # Extracting nested values
+        order_id = data.get('data', {}).get('order', {}).get('order_id')
+        payment_status = data.get('data', {}).get('payment', {}).get('payment_status')
 
         if not order_id:
             logging.error("order_id is missing in the webhook data.")
@@ -166,7 +167,8 @@ def webhook():
             logging.error("payment_status is missing in the webhook data.")
             return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
 
-        if payment_status == 'PAID':
+        # Process the payment status
+        if payment_status == 'SUCCESS':
             update_order_status(order_id, 'Order Completed')
         else:
             update_order_status(order_id, payment_status.capitalize())
@@ -176,6 +178,7 @@ def webhook():
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
 
 
 
