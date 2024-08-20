@@ -157,18 +157,20 @@ def webhook():
         order_id = data.get('order_id')
         payment_status = data.get('order_status')
 
-        if payment_status == 'PAID':
+        if payment_status:
             # Update the order status in Firestore
-            update_order_status(order_id, 'Order Completed')
-        else:
-            # Handle other statuses like FAILED, CANCELLED, etc.
             update_order_status(order_id, payment_status.capitalize())
+        else:
+            # Log and handle the case where payment_status is None
+            logging.error(f"Received webhook with NoneType payment_status for order_id: {order_id}")
+            return jsonify({'error': 'Invalid payment status received'}), 400
 
         return jsonify({'status': 'success'}), 200
 
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
 
 
 
