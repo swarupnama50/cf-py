@@ -70,20 +70,20 @@ def create_order():
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
 
-            # Save order data to Firestore
-            order_data = {
-                'order_id': order_id,
-                'status': 'pending',
-                'order_ref': f'orders/{order_id}',
-                'order_time': data.get('order_time'),  # Ensure order_time is available
-                'payment_status': 'pending'
-            }
-            user_ref = db.collection('users').document(user_phone_number)
-            user_ref.set({
-                'orders': {
-                    order_id: order_data
-                }
-            }, merge=True)
+            # # Save order data to Firestore
+            # order_data = {
+            #     'order_id': order_id,
+            #     'status': 'pending',
+            #     'order_ref': f'orders/{order_id}',
+            #     'order_time': data.get('order_time'),
+            #     'payment_status': 'pending'
+            # }
+            # user_ref = db.collection('users').document(user_phone_number)
+            # user_ref.set({
+            #     'orders': {
+            #         order_id: order_data
+            #     }
+            # }, merge=True)
 
             return jsonify({
                 'order_id': order_id,
