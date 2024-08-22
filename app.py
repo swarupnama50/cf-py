@@ -40,7 +40,7 @@ def create_order():
 
         # Include payment_status placeholder in return_url
         return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}&payment_status={{payment_status}}'
-        notify_url = 'https://cf-py.onrender.com/webhook'
+        notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
             'Content-Type': 'application/json',
