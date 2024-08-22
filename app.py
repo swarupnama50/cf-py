@@ -161,7 +161,11 @@ def payment_response():
             return jsonify({'message': 'Payment verification failed', 'order_id': order_id})
     else:
         # Let Cashfree handle cancellations or failures
-        return jsonify({'message': 'Payment not successful', 'order_id': order_id})
+        return jsonify({
+            'message': 'Payment not successful',
+            'order_id': order_id,
+            'status': payment_status
+            })
 
 
 
