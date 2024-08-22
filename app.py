@@ -1,5 +1,4 @@
 import json
-from pipes import quote
 from flask import Flask, request, jsonify
 import requests
 import os
@@ -39,11 +38,7 @@ def create_order():
         order_id = data.get('order_id')
         user_phone_number = data.get('customer_phone')
 
-        return_url = (
-            f'http://localhost:8426/payment_response?order_id={quote(str(order_id))}'
-            f'&status=success'
-     
-        )
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py.onrender.com/webhook'
 
         headers = {
@@ -74,21 +69,6 @@ def create_order():
 
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
-
-            # # Save order data to Firestore
-            # order_data = {
-            #     'order_id': order_id,
-            #     'status': 'pending',
-            #     'order_ref': f'orders/{order_id}',
-            #     'order_time': data.get('order_time'),
-            #     'payment_status': 'pending'
-            # }
-            # user_ref = db.collection('users').document(user_phone_number)
-            # user_ref.set({
-            #     'orders': {
-            #         order_id: order_data
-            #     }
-            # }, merge=True)
 
             return jsonify({
                 'order_id': order_id,
@@ -136,7 +116,6 @@ def initiate_payment():
 def payment_response():
     data = request.args.to_dict()
     order_id = data.get('order_id')
-    
 
     # Verify the payment with Cashfree
     payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
@@ -149,21 +128,19 @@ def payment_response():
     verification_data = verification_response.json()
 
     if verification_response.status_code == 200 and verification_data.get('order_status') == 'PAID':
-            # Payment is verified, redirect to ImageScreen
-            return jsonify({
-                'message': 'Payment verified',
-                'order_id': order_id,
-                'status': 'success',
-                'redirect_url': 'image_screen',
-            })
-       
+        # Payment is verified, update order status
+        update_order_status(order_id, 'Order Completed')
+        return jsonify({
+            'message': 'Payment verified',
+            'order_id': order_id,
+            'redirect_url': 'image_screen',
+        })
     else:
-        # Verification failed
+        # Payment not verified
         return jsonify({
             'message': 'Payment verification failed',
             'order_id': order_id,
-            'status': 'failed'
-        }), verification_response.status_code
+        })
 
 
 @app.route('/webhook', methods=['POST'])
