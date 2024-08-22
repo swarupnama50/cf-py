@@ -39,7 +39,6 @@ def create_order():
         user_phone_number = data.get('customer_phone')
 
         return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
-        f'&status=success'
         notify_url = 'https://cf-py.onrender.com/webhook'
 
         headers = {
@@ -143,21 +142,28 @@ def payment_response():
     verification_response = requests.get(payment_verification_url, headers=headers)
     verification_data = verification_response.json()
 
-    if verification_response.status_code == 200 and verification_data.get('order_status') == 'PAID':
-        # Payment is verified, update order status
-        update_order_status(order_id, 'Order Completed')
-        return jsonify({
-            'message': 'Payment verified',
-            'order_id': order_id,
-            'status': 'success',
-            'redirect_url': 'image_screen',
-        })
+    if verification_response.status_code == 200:
+        if verification_data.get('order_status') == 'PAID':
+            # Payment is verified, redirect to ImageScreen
+            return jsonify({
+                'message': 'Payment verified',
+                'order_id': order_id,
+                'redirect_url': 'image_screen',  # Your Flutter app should handle this redirect
+            })
+        else:
+            # Payment not successful, let Cashfree handle the error
+            return jsonify({
+                'message': 'Payment not successful',
+                'order_id': order_id,
+                'redirect_url': None
+            })
     else:
-        # Payment not verified
+        # Verification failed
         return jsonify({
             'message': 'Payment verification failed',
             'order_id': order_id,
-        })
+            'redirect_url': None
+        }), verification_response.status_code
 
 
 @app.route('/webhook', methods=['POST'])
