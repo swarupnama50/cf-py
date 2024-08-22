@@ -38,7 +38,8 @@ def create_order():
         order_id = data.get('order_id')
         user_phone_number = data.get('customer_phone')
 
-        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+        # Include payment_status placeholder in return_url
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}&payment_status={{payment_status}}'
         notify_url = 'https://cf-py.onrender.com/webhook'
 
         headers = {
@@ -116,18 +117,9 @@ def initiate_payment():
 def payment_response():
     data = request.args.to_dict()
     order_id = data.get('order_id')
+    payment_status = data.get('payment_status')
 
-    # Verify the payment with Cashfree
-    payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
-    headers = {
-        'x-client-id': CASHFREE_APP_ID,
-        'x-client-secret': CASHFREE_SECRET_KEY,
-    }
-
-    verification_response = requests.get(payment_verification_url, headers=headers)
-    verification_data = verification_response.json()
-
-    if verification_response.status_code == 200 and verification_data.get('order_status') == 'PAID':
+    if payment_status == 'SUCCESS':
         # Payment is verified, update order status
         update_order_status(order_id, 'Order Completed')
         return jsonify({
@@ -136,11 +128,12 @@ def payment_response():
             'redirect_url': 'image_screen',
         })
     else:
-        # Payment not verified
+        # Payment not successful, no redirection
         return jsonify({
-            'message': 'Payment verification failed',
+            'message': 'Payment verification failed or incomplete',
             'order_id': order_id,
         })
+
 
 
 @app.route('/webhook', methods=['POST'])
@@ -168,6 +161,7 @@ def webhook():
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
     
 
 
