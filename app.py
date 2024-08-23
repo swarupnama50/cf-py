@@ -99,8 +99,8 @@ def initiate_payment():
         'order_id': order_id,
         'order_amount': order_amount,
         'order_currency': 'INR',
-        # 'return_url': f'http://localhost:1124/payment_response?order_id={order_id}',
-        # 'notify_url': 'https://cf-py.onrender.com/webhook'
+        'return_url': f'http://localhost:1124/payment_response?order_id={order_id}',
+        'notify_url': 'https://cf-py.onrender.com/webhook'
     }
 
     response = requests.post(payment_url, json=payload, headers={
@@ -219,7 +219,28 @@ def update_order_status(order_id, status, user_phone_number):
         logging.error(f"Error updating order status: {e}")
 
 
+@app.route('/payment_notification', methods=['POST'])
+def payment_notification():
+    try:
+        data = request.json
+        order_id = data.get('order_id')
+        payment_status = data.get('payment_status')
 
+        if order_id and payment_status:
+            if payment_status == 'SUCCESS':
+                # Update the order status in Firestore
+                orders_ref = db.collection('orders')
+                order_ref = orders_ref.document(order_id)
+                order_ref.update({'payment_status': 'Order Completed'})
+                return jsonify({'status': 'success', 'message': 'Payment status updated'}), 200
+            else:
+                # Handle other statuses or errors as needed
+                return jsonify({'status': 'failure', 'message': 'Payment not successful'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
+    except Exception as e:
+        logging.error(f"Error processing payment notification: {e}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 
 if __name__ == '__main__':
