@@ -1,4 +1,8 @@
-https://teerkhelo.web.app/
+https://cf-py-bvfc.onrender.com
+
+https://cf-py-bvfc.onrender.com/webhook
+
+https://teerkhelo.web.app
 
 http://localhost:1120/
 
@@ -7,3 +11,28 @@ http://127.0.0.1:5000
 https://cf-py.onrender.com
 
 https://cf-py.onrender.com/webhook
+
+
+
+# @app.route('/payment_notification', methods=['POST'])
+# def payment_notification():
+#     try:
+#         data = request.json
+#         order_id = data.get('order_id')
+#         payment_status = data.get('payment_status')
+
+#         if order_id and payment_status:
+#             if payment_status == 'SUCCESS':
+#                 # Update the order status in Firestore
+#                 orders_ref = db.collection('orders')
+#                 order_ref = orders_ref.document(order_id)
+#                 order_ref.update({'payment_status': 'Order Completed'})
+#                 return jsonify({'status': 'success', 'message': 'Payment status updated'}), 200
+#             else:
+#                 # Handle other statuses or errors as needed
+#                 return jsonify({'status': 'failure', 'message': 'Payment not successful'}), 200
+#         else:
+#             return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
+#     except Exception as e:
+#         logging.error(f"Error processing payment notification: {e}")
+#         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500

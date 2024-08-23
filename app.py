@@ -31,6 +31,9 @@ CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
 
+
+
+
 @app.route('/create_order', methods=['POST'])
 def create_order():
     try:
@@ -38,8 +41,7 @@ def create_order():
         order_id = data.get('order_id')
         user_phone_number = data.get('customer_phone')
 
-        # Include payment_status placeholder in return_url
-        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}&payment_status={{payment_status}}'
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -71,6 +73,7 @@ def create_order():
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
 
+
             return jsonify({
                 'order_id': order_id,
                 'payment_session_id': payment_session_id
@@ -80,7 +83,6 @@ def create_order():
 
     except Exception as e:
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
-
 
 
 
@@ -97,7 +99,7 @@ def initiate_payment():
         'order_id': order_id,
         'order_amount': order_amount,
         'order_currency': 'INR',
-        'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}',
+        # 'return_url': f'http://localhost:1124/payment_response?order_id={order_id}',
         # 'notify_url': 'https://cf-py.onrender.com/webhook'
     }
 
@@ -112,26 +114,66 @@ def initiate_payment():
         return jsonify({'payment_url': data.get('payment_url')})
     else:
         return jsonify({'error': 'Failed to initiate payment'}), response.status_code
+    
+
+
+    
 
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
     data = request.args.to_dict()
     order_id = data.get('order_id')
-    payment_status = data.get('payment_status')
 
-    if payment_status == 'SUCCESS':
-        # Payment is verified, update order status
-        update_order_status(order_id, 'Order Completed')
+    if not order_id:
         return jsonify({
-            'message': 'Payment verified',
-            'order_id': order_id,
-            'redirect_url': 'image_screen',
+            'message': 'Invalid request',
+            'redirect_url': 'pending_screen'
         })
-    else:
-        # Payment not successful, no redirection
+
+    # Verify the payment with Cashfree
+    payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
+    headers = {
+        'x-client-id': CASHFREE_APP_ID,
+        'x-client-secret': CASHFREE_SECRET_KEY,
+    }
+
+    try:
+        verification_response = requests.get(payment_verification_url, headers=headers)
+        verification_data = verification_response.json()
+
+        if verification_response.status_code == 200:
+            order_status = verification_data.get('order_status')
+            if order_status == 'PAID':
+                # Payment is verified
+                update_order_status(order_id, 'Order Completed')
+                return jsonify({
+                    'message': 'Payment successful',
+                    'redirect_url': 'image_screen'
+                })
+            elif order_status in ['FAILED', 'CANCELLED']:
+                # Payment failed or was canceled
+                update_order_status(order_id, order_status.capitalize())
+                return jsonify({
+                    'message': f'Payment status: {order_status}',
+                    'redirect_url': 'pending_screen'
+                })
+            else:
+                # Handle unknown status
+                return jsonify({
+                    'message': 'Unknown payment status',
+                    'redirect_url': 'pending_screen'
+                })
+        else:
+            # Handle HTTP error
+            return jsonify({
+                'message': 'Payment verification failed',
+                'redirect_url': 'pending_screen'
+            })
+    except Exception as e:
+        logging.error(f"Error verifying payment: {e}")
         return jsonify({
-            'message': 'Payment verification failed or incomplete',
-            'order_id': order_id,
+            'message': 'Error verifying payment',
+            'redirect_url': 'pending_screen'
         })
 
 
@@ -179,29 +221,6 @@ def update_order_status(order_id, status, user_phone_number):
 
 
 
-@app.route('/payment_notification', methods=['POST'])
-def payment_notification():
-    try:
-        data = request.json
-        order_id = data.get('order_id')
-        payment_status = data.get('payment_status')
-
-        if order_id and payment_status:
-            if payment_status == 'SUCCESS':
-                # Update the order status in Firestore
-                orders_ref = db.collection('orders')
-                order_ref = orders_ref.document(order_id)
-                order_ref.update({'payment_status': 'Order Completed'})
-                return jsonify({'status': 'success', 'message': 'Payment status updated'}), 200
-            else:
-                # Handle other statuses or errors as needed
-                return jsonify({'status': 'failure', 'message': 'Payment not successful'}), 200
-        else:
-            return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
-    except Exception as e:
-        logging.error(f"Error processing payment notification: {e}")
-        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
-
 
 if __name__ == '__main__':
-    app.run(debug=False, host='127.0.0.1', port=5000)
+    app.run(debug=True, host='127.0.0.1', port=5000)
