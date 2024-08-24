@@ -29,7 +29,7 @@ CORS(app)
 
 CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
-CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
+CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
 
 @app.route('/create_order', methods=['POST'])
 def create_order():
@@ -38,7 +38,7 @@ def create_order():
         order_id = data.get('order_id')
         user_phone_number = data.get('customer_phone')
 
-        return_url = f'http://localhost:1922/payment_response?order_id={order_id}'
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -101,44 +101,31 @@ def create_order():
 
 @app.route('/initiate_payment', methods=['POST'])
 def initiate_payment():
-    try:
-        data = request.json
-        order_id = data.get('order_id')
+    data = request.json
+    order_id = data.get('order_id')
+    order_amount = data.get('order_amount')
 
-        # Fetch order details from Firestore to get the amount
-        order_ref = db.collection('users').document(data.get('customer_phone')).collection('orders').document(order_id)
-        order = order_ref.get()
+    payment_url = "https://api.cashfree.com/checkout"
 
-        if not order.exists:
-            return jsonify({'error': 'Order not found'}), 404
+    payload = {
+        'order_id': order_id,
+        'order_amount': order_amount,
+        'order_currency': 'INR',
+        'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}',
+        # 'notify_url': 'https://cf-py-bvfc.onrender.com/webhook'
+    }
 
-        order_data = order.to_dict()
-        order_amount = order_data.get('order_amount')
+    response = requests.post(payment_url, json=payload, headers={
+        'Content-Type': 'application/json',
+        'x-client-id': CASHFREE_APP_ID,
+        'x-client-secret': CASHFREE_SECRET_KEY,
+    })
 
-        payment_url = "https://sandbox.cashfree.com/checkout"
-
-        payload = {
-            'order_id': order_id,
-            'order_amount': order_amount,
-            'order_currency': 'INR',
-            'return_url': f'http://localhost:1922/payment_response?order_id={order_id}',
-        }
-
-        response = requests.post(payment_url, json=payload, headers={
-            'Content-Type': 'application/json',
-            'x-client-id': CASHFREE_APP_ID,
-            'x-client-secret': CASHFREE_SECRET_KEY,
-        })
-
-        if response.status_code == 200:
-            data = response.json()
-            return jsonify({'payment_url': data.get('payment_url')})
-        else:
-            return jsonify({'error': 'Failed to initiate payment'}), response.status_code
-
-    except Exception as e:
-        return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
-
+    if response.status_code == 200:
+        data = response.json()
+        return jsonify({'payment_url': data.get('payment_url')})
+    else:
+        return jsonify({'error': 'Failed to initiate payment'}), response.status_code
 
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
@@ -146,7 +133,7 @@ def payment_response():
     order_id = data.get('order_id')
 
     # Verify the payment with Cashfree
-    payment_verification_url = f'https://sandbox.cashfree.com/pg/orders/{order_id}'
+    payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
     headers = {
         'x-client-id': CASHFREE_APP_ID,
         'x-client-secret': CASHFREE_SECRET_KEY,
