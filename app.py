@@ -70,7 +70,7 @@ def create_order():
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
 
-            # # Save order data to Firestore
+            # # Save order data to Firestor
             # order_data = {
             #     'order_id': order_id,
             #     'status': 'pending',
