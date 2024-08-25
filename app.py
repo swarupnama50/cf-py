@@ -38,7 +38,7 @@ def create_order():
         order_id = data.get('order_id')
         user_phone_number = data.get('customer_phone')
 
-        return_url = f'https://teerkhelo.web.apppayment_response?order_id={order_id}'
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -108,7 +108,7 @@ def resume_payment():
         customer_phone = data.get('customer_phone')
         order_amount = data.get('order_amount')
 
-        return_url = f'https://teerkhelo.web.apppayment_response?order_id={order_id}'
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
