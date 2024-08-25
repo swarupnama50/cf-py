@@ -38,7 +38,7 @@ def create_order():
         order_id = data.get('order_id')
         user_phone_number = data.get('customer_phone')
 
-        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+        return_url = f'https://teerkhelo.web.apppayment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -99,34 +99,64 @@ def create_order():
 
 
 
-@app.route('/initiate_payment', methods=['POST'])
-def initiate_payment():
-    data = request.json
-    order_id = data.get('order_id')
-    order_amount = data.get('order_amount')
+@app.route('/resume_payment', methods=['POST'])
+def resume_payment():
+    try:
+        data = request.json
+        order_id = data.get('order_id')
+        customer_name = data.get('customer_name')
+        customer_phone = data.get('customer_phone')
+        order_amount = data.get('order_amount')
 
-    payment_url = "https://api.cashfree.com/checkout"
+        return_url = f'https://teerkhelo.web.apppayment_response?order_id={order_id}'
+        notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
-    payload = {
-        'order_id': order_id,
-        'order_amount': order_amount,
-        'order_currency': 'INR',
-        'return_url': f'https://teerkhelo.web.app/payment_response?order_id={order_id}',
-        # 'notify_url': 'https://cf-py-bvfc.onrender.com/webhook'
-    }
+        headers = {
+            'Content-Type': 'application/json',
+            'x-client-id': CASHFREE_APP_ID,
+            'x-client-secret': CASHFREE_SECRET_KEY,
+            'x-api-version': '2023-08-01'
+        }
 
-    response = requests.post(payment_url, json=payload, headers={
-        'Content-Type': 'application/json',
-        'x-client-id': CASHFREE_APP_ID,
-        'x-client-secret': CASHFREE_SECRET_KEY,
-    })
+        payload = {
+            'order_id': order_id,
+            'order_amount': order_amount,
+            'order_currency': 'INR',
+            'customer_details': {
+                'customer_id': f'customer_{order_id}',
+                'customer_name': customer_name,
+                'customer_email': f'{customer_phone}@example.com',
+                'customer_phone': customer_phone
+            },
+            'order_meta': {
+                'return_url': return_url,
+                'notify_url': notify_url
+            }
+        }
 
-    if response.status_code == 200:
-        data = response.json()
-        return jsonify({'payment_url': data.get('payment_url')})
-    else:
-        return jsonify({'error': 'Failed to initiate payment'}), response.status_code
+        # Log the request details (be careful not to log sensitive information in production)
+        app.logger.debug(f"Headers: {headers}")
+        app.logger.debug(f"Payload: {payload}")
 
+        response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
+        response_data = response.json()
+
+        # Log the response
+        app.logger.debug(f"Response status code: {response.status_code}")
+        app.logger.debug(f"Response data: {response_data}")
+
+        if response.status_code == 200:
+            payment_session_id = response_data.get('payment_session_id', '')
+            return jsonify({
+                'order_id': order_id,
+                'payment_session_id': payment_session_id
+            })
+        else:
+            return jsonify({'error': response_data.get('message', 'Unknown error occurred')}), response.status_code
+
+    except Exception as e:
+        app.logger.error(f"An error occurred: {str(e)}")
+        return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
     data = request.args.to_dict()
@@ -225,4 +255,5 @@ def payment_notification():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='127.0.0.1', port=5000)
+    app.run(debug=False, ) # False for production
+    # host='127.0.0.1', port=5000
