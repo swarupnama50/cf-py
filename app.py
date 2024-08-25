@@ -1,4 +1,5 @@
 import json
+import uuid
 from flask import Flask, request, jsonify
 import requests
 import os
@@ -104,13 +105,9 @@ def resume_payment():
     try:
         data = request.json
         order_id = data.get('order_id')
-        customer_name = data.get('customer_name')
-        customer_phone = data.get('customer_phone')
-        order_amount = data.get('order_amount')
 
-        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
-        notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
-
+        # First, try to fetch the existing order
+        fetch_order_url = f"{CASHFREE_API_URL}/{order_id}"
         headers = {
             'Content-Type': 'application/json',
             'x-client-id': CASHFREE_APP_ID,
@@ -118,45 +115,40 @@ def resume_payment():
             'x-api-version': '2023-08-01'
         }
 
-        payload = {
-            'order_id': order_id,
-            'order_amount': order_amount,
-            'order_currency': 'INR',
-            'customer_details': {
-                'customer_id': f'customer_{order_id}',
-                'customer_name': customer_name,
-                'customer_email': f'{customer_phone}@example.com',
-                'customer_phone': customer_phone
-            },
-            'order_meta': {
-                'return_url': return_url,
-                'notify_url': notify_url
+        fetch_response = requests.get(fetch_order_url, headers=headers)
+        fetch_data = fetch_response.json()
+
+        if fetch_response.status_code == 200:
+            # Order exists, create a new payment session
+            create_session_url = f"{CASHFREE_API_URL}/{order_id}/sessions"
+            session_payload = {
+                "payment_session_id": str(uuid.uuid4()),
+                "payment_method": {
+                    "upi": {
+                        "channel": "link"
+                    }
+                }
             }
-        }
 
-        # Log the request details (be careful not to log sensitive information in production)
-        app.logger.debug(f"Headers: {headers}")
-        app.logger.debug(f"Payload: {payload}")
+            session_response = requests.post(create_session_url, json=session_payload, headers=headers)
+            session_data = session_response.json()
 
-        response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
-        response_data = response.json()
-
-        # Log the response
-        app.logger.debug(f"Response status code: {response.status_code}")
-        app.logger.debug(f"Response data: {response_data}")
-
-        if response.status_code == 200:
-            payment_session_id = response_data.get('payment_session_id', '')
-            return jsonify({
-                'order_id': order_id,
-                'payment_session_id': payment_session_id
-            })
+            if session_response.status_code == 200:
+                return jsonify({
+                    'order_id': order_id,
+                    'payment_session_id': session_data.get('payment_session_id')
+                })
+            else:
+                return jsonify({'error': session_data.get('message', 'Failed to create payment session')}), session_response.status_code
         else:
-            return jsonify({'error': response_data.get('message', 'Unknown error occurred')}), response.status_code
+            return jsonify({'error': fetch_data.get('message', 'Failed to fetch order details')}), fetch_response.status_code
 
     except Exception as e:
         app.logger.error(f"An error occurred: {str(e)}")
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
+    
+
+    
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
     data = request.args.to_dict()
