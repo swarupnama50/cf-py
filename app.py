@@ -114,72 +114,72 @@ def resume_payment():
             'x-api-version': '2023-08-01'
         }
 
-        # Check if order exists in Realtime Database
-        app.logger.debug("Checking if order exists in Realtime Database")
-        ref = db.reference('orders')
-        order_data = ref.child(order_id).get()
+        # Check if order exists in Firestore
+        app.logger.debug("Checking if order exists in Firestore")
+        user_ref = db.collection('users').document(customer_phone)
+        user_doc = user_ref.get()
 
-        if order_data:
-            app.logger.info(f"Order {order_id} already exists. Checking status with Cashfree.")
-            # Check the status of the order with Cashfree
-            check_order_url = f'{CASHFREE_API_URL}/{order_id}'
-            check_response = requests.get(check_order_url, headers=headers)
-            check_data = check_response.json()
+        if user_doc.exists:
+            orders = user_doc.to_dict().get('orders', {})
+            if order_id in orders:
+                app.logger.info(f"Order {order_id} already exists.")
+                # Check the status of the order with Cashfree
+                check_order_url = f'{CASHFREE_API_URL}/{order_id}'
+                check_response = requests.get(check_order_url, headers=headers)
+                check_data = check_response.json()
 
-            if check_data.get('order_status') in ['PAID', 'EXPIRED']:
-                app.logger.info(f"Order {order_id} is {check_data.get('order_status')}. Creating new order.")
-                # Create a new order with a new ID
-                new_order_id = f"{order_id}_retry_{int(time.time())}"
-                order_id = new_order_id  # Update order_id
+                if check_response.status_code == 200:
+                    if check_data.get('order_status') in ['PAID', 'EXPIRED']:
+                        # Create a new order with a new ID
+                        new_order_id = f"{order_id}_retry_{int(time.time())}"
+                        payload = {
+                            'order_id': new_order_id,
+                            'order_amount': order_amount,
+                            'order_currency': 'INR',
+                            'customer_details': {
+                                'customer_id': f'customer_{new_order_id}',
+                                'customer_name': customer_name,
+                                'customer_email': f'{customer_phone}@example.com',
+                                'customer_phone': customer_phone
+                            },
+                            'order_meta': {
+                                'return_url': return_url,
+                                'notify_url': notify_url
+                            }
+                        }
+                        # Create a new payment session
+                        response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
+                        response_data = response.json()
+
+                        # Log the response
+                        app.logger.debug(f"Response status code: {response.status_code}")
+                        app.logger.debug(f"Response data: {response_data}")
+
+                        if response.status_code == 200:
+                            payment_session_id = response_data.get('payment_session_id', '')
+                            return jsonify({
+                                'order_id': new_order_id,
+                                'payment_session_id': payment_session_id
+                            })
+                        else:
+                            return jsonify({'error': response_data.get('message', 'Unknown error occurred')}), response.status_code
+
+                    else:
+                        # Use the existing payment session ID
+                        return jsonify({
+                            'order_id': order_id,
+                            'payment_session_id': check_data.get('payment_session_id')
+                        })
+                else:
+                    return jsonify({'error': 'Failed to check order status with Cashfree'}), check_response.status_code
+
             else:
-                app.logger.info(f"Order {order_id} is still active. Using existing payment session.")
-                # Use the existing payment session ID
-                return jsonify({
-                    'order_id': order_id,
-                    'payment_session_id': check_data.get('payment_session_id')
-                })
+                # Order ID not found under user's orders
+                return jsonify({'error': 'Order ID not found'}), 404
+
         else:
-            app.logger.info(f"Order {order_id} does not exist. Creating a new order.")
-
-        # Create a new payment session ID
-        app.logger.debug("Creating new payment session ID")
-        payload = {
-            'order_id': order_id,
-            'order_amount': order_amount,
-            'order_currency': 'INR',
-            'customer_details': {
-                'customer_id': f'customer_{order_id}',
-                'customer_name': customer_name,
-                'customer_email': f'{customer_phone}@example.com',
-                'customer_phone': customer_phone
-            },
-            'order_meta': {
-                'return_url': return_url,
-                'notify_url': notify_url
-            }
-        }
-
-        # Create a new payment session
-        response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
-        response_data = response.json()
-
-        # Log the response
-        app.logger.debug(f"Response status code: {response.status_code}")
-        app.logger.debug(f"Response data: {response_data}")
-
-        if response.status_code == 200:
-            payment_session_id = response_data.get('payment_session_id', '')
-            
-            # If a new order was created, update Firestore and Realtime Database
-            if order_id != data.get('order_id'):
-                update_databases_with_new_order(data.get('order_id'), order_id, payment_session_id, customer_phone, order_data)
-            
-            return jsonify({
-                'order_id': order_id,
-                'payment_session_id': payment_session_id
-            })
-        else:
-            return jsonify({'error': response_data.get('message', 'Unknown error occurred')}), response.status_code
+            # User not found
+            return jsonify({'error': 'User not found'}), 404
 
     except Exception as e:
         app.logger.error(f"An error occurred: {str(e)}")
