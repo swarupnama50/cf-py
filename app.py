@@ -70,20 +70,12 @@ def create_order():
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
 
-            # # Save order data to Firestor
-            # order_data = {
-            #     'order_id': order_id,
-            #     'status': 'pending',
-            #     'order_ref': f'orders/{order_id}',
-            #     'order_time': data.get('order_time'),
-            #     'payment_status': 'pending'
-            # }
-            # user_ref = db.collection('users').document(user_phone_number)
-            # user_ref.set({
-            #     'orders': {
-            #         order_id: order_data
-            #     }
-            # }, merge=True)
+            # Save order and payment session id to Firestore
+            order_ref = db.collection('orders').document(order_id)
+            order_ref.set({
+                'order_amount': data.get('order_amount'),
+                'payment_session_id': payment_session_id
+            })
 
             return jsonify({
                 'order_id': order_id,
@@ -98,14 +90,18 @@ def create_order():
 
 
 
+
 @app.route('/resume_payment', methods=['POST'])
 def resume_payment():
     try:
+        app.logger.debug("Resume payment started")
         data = request.json
         order_id = data.get('order_id')
         customer_name = data.get('customer_name')
         customer_phone = data.get('customer_phone')
         order_amount = data.get('order_amount')
+
+        app.logger.debug(f"Data received: order_id={order_id}, customer_name={customer_name}, customer_phone={customer_phone}")
 
         return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
@@ -117,7 +113,18 @@ def resume_payment():
             'x-api-version': '2023-08-01'
         }
 
-        # Prepare payload
+        # Check if order exists in Firestore
+        app.logger.debug("Checking if order exists in Firestore")
+        order_ref = db.collection('orders').document(order_id)
+        order_doc = order_ref.get()
+
+        if order_doc.exists:
+            app.logger.info(f"Order {order_id} already exists.")
+        else:
+            app.logger.info(f"Order {order_id} does not exist. Creating a new order.")
+
+        # Create a new payment session ID
+        app.logger.debug("Creating new payment session ID")
         payload = {
             'order_id': order_id,
             'order_amount': order_amount,
@@ -134,19 +141,6 @@ def resume_payment():
             }
         }
 
-        # Log the request details
-        app.logger.debug(f"Headers: {headers}")
-        app.logger.debug(f"Payload: {payload}")
-
-        # Check if order exists in Firestore
-        order_ref = db.collection('orders').document(order_id)
-        order_doc = order_ref.get()
-
-        if order_doc.exists:
-            app.logger.info(f"Order {order_id} already exists.")
-            return jsonify({'order_id': order_id, 'message': 'Order already exists'}), 200
-
-        # Proceed with payment creation
         response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
         response_data = response.json()
 
@@ -166,6 +160,10 @@ def resume_payment():
     except Exception as e:
         app.logger.error(f"An error occurred: {str(e)}")
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
+
+
+
+
 
     
 

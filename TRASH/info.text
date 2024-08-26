@@ -1,3 +1,37 @@
+
+- - [25/Aug/2024:15:09:20 +0000] "OPTIONS /resume_payment HTTP/1.1" 200 0 "https://teerkhelo.web.app/" "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+DEBUG:app:Headers: {'Content-Type': 'application/json', 'x-client-id': '43164923522f23791291250105946134', 'x-client-secret': 'cfsk_ma_prod_6c5dee4d827cccf049da433c3bc82567_d46b2ff8', 'x-api-version': '2023-08-01'}
+DEBUG:app:Payload: {'order_id': 'oggy6cbb40', 'order_amount': '1', 'order_currency': 'INR', 'customer_details': {'customer_id': 'customer_oggy6cbb40', 'customer_name': 'Oggy Yadi', 'customer_email': '+916033037225@example.com', 'customer_phone': '+916033037225'}, 'order_meta': {'return_url': 'https://teerkhelo.web.app/payment_response?order_id=oggy6cbb40', 'notify_url': 'https://cf-py-bvfc.onrender.com/webhook'}}
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): api.cashfree.com:443
+DEBUG:urllib3.connectionpool:https://api.cashfree.com:443 "POST /pg/orders HTTP/11" 409 113
+DEBUG:app:Response status code: 409
+DEBUG:app:Response data: {'message': 'order with same id is already present', 'code': 'order_already_exists', 'type': 'invalid_request_error'}
+127.0.0.1 - - [25/Aug/2024:15:09:22 +0000] "POST /resume_payment HTTP/1.1" 409 50 "https://teerkhelo.web.app/" "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 127.0.0.1 - - [25/Aug/2024:13:43:01 +0000] "OPTIONS /resume_payment HTTP/1.1" 200 0 "https://teerkhelo.web.app/" "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
 DEBUG:app:Headers: {'Content-Type': 'application/json', 'x-client-id': '43164923522f23791291250105946134', 'x-client-secret': 'cfsk_ma_prod_6c5dee4d827cccf049da433c3bc82567_d46b2ff8', 'x-api-version': '2023-08-01'}
 DEBUG:app:Payload: {'order_id': 'oggy605ea3', 'order_amount': '1', 'order_currency': 'INR', 'customer_details': {'customer_id': 'customer_oggy605ea3', 'customer_name': 'Oggy Yadi', 'customer_email': '+916033037225@example.com', 'customer_phone': '+916033037225'}, 'order_meta': {'return_url': 'https://teerkhelo.web.app/payment_response?order_id=oggy605ea3', 'notify_url': 'https://cf-py-bvfc.onrender.com/webhook'}}
