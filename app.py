@@ -71,10 +71,9 @@ def create_order():
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
 
-            # Save order and payment session id to Firestore
-            order_ref = db.collection('orders').document(order_id)
-            order_ref.set({
-                'order_amount': data.get('order_amount'),
+           # Update Firestore to include payment session id
+            order_ref = db.collection('users').document(user_phone_number).collection('orders').document(order_id)
+            order_ref.update({
                 'payment_session_id': payment_session_id
             })
 
