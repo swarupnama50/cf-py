@@ -67,13 +67,15 @@ def create_order():
 
         response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
         response_data = response.json()
+        app.logger.debug(f"Cashfree response data: {response_data}")
 
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
 
-           # Update Firestore to include payment session id
-            order_ref = db.collection('users').document(user_phone_number).collection('orders').document(order_id)
-            order_ref.update({
+            # Save order and payment session id to Firestore
+            order_ref = db.collection('orders').document(order_id)
+            order_ref.set({
+                'order_amount': data.get('order_amount'),
                 'payment_session_id': payment_session_id
             })
 
