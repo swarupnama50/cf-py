@@ -1,4 +1,5 @@
 import json
+import time
 from flask import Flask, request, jsonify
 import requests
 import os
@@ -8,7 +9,6 @@ import logging
 import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
-import uuid
 
 # Read and decode the Firebase key
 firebase_key_base64 = os.getenv('FIREBASE_KEY_BASE64')
@@ -30,13 +30,7 @@ CORS(app)
 
 CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
-CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
-
-def generate_new_order_id(existing_order_id):
-    # Generate a new unique code and append it to the existing order ID
-    new_unique_code = str(uuid.uuid4())[:8]  # Shorten the UUID for readability
-    new_order_id = f"{existing_order_id}_new{new_unique_code}"
-    return new_order_id
+CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
 
 @app.route('/create_order', methods=['POST'])
 def create_order():
@@ -54,15 +48,6 @@ def create_order():
             'x-client-secret': CASHFREE_SECRET_KEY,
             'x-api-version': '2023-08-01'
         }
-
-        # Check if the order ID already exists
-        order_ref = db.collection('orders').document(order_id)
-        order_doc = order_ref.get()
-
-        if order_doc.exists:
-            # If the order ID exists, generate a new order ID
-            logging.info(f"Order ID {order_id} exists. Generating a new order ID.")
-            order_id = generate_new_order_id(order_id)
 
         payload = {
             'order_id': order_id,
@@ -103,6 +88,10 @@ def create_order():
     except Exception as e:
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
 
+
+
+
+
 @app.route('/resume_payment', methods=['POST'])
 def resume_payment():
     try:
@@ -125,13 +114,30 @@ def resume_payment():
             'x-api-version': '2023-08-01'
         }
 
-        # Check if order exists in Firestore
-        app.logger.debug("Checking if order exists in Firestore")
-        order_ref = db.collection('orders').document(order_id)
-        order_doc = order_ref.get()
+        # Check if order exists in Realtime Database
+        app.logger.debug("Checking if order exists in Realtime Database")
+        ref = db.reference('orders')
+        order_data = ref.child(order_id).get()
 
-        if order_doc.exists:
-            app.logger.info(f"Order {order_id} already exists.")
+        if order_data:
+            app.logger.info(f"Order {order_id} already exists. Checking status with Cashfree.")
+            # Check the status of the order with Cashfree
+            check_order_url = f'{CASHFREE_API_URL}/{order_id}'
+            check_response = requests.get(check_order_url, headers=headers)
+            check_data = check_response.json()
+
+            if check_data.get('order_status') in ['PAID', 'EXPIRED']:
+                app.logger.info(f"Order {order_id} is {check_data.get('order_status')}. Creating new order.")
+                # Create a new order with a new ID
+                new_order_id = f"{order_id}_retry_{int(time.time())}"
+                order_id = new_order_id  # Update order_id
+            else:
+                app.logger.info(f"Order {order_id} is still active. Using existing payment session.")
+                # Use the existing payment session ID
+                return jsonify({
+                    'order_id': order_id,
+                    'payment_session_id': check_data.get('payment_session_id')
+                })
         else:
             app.logger.info(f"Order {order_id} does not exist. Creating a new order.")
 
@@ -153,6 +159,7 @@ def resume_payment():
             }
         }
 
+        # Create a new payment session
         response = requests.post(CASHFREE_API_URL, json=payload, headers=headers)
         response_data = response.json()
 
@@ -162,6 +169,11 @@ def resume_payment():
 
         if response.status_code == 200:
             payment_session_id = response_data.get('payment_session_id', '')
+            
+            # If a new order was created, update Firestore and Realtime Database
+            if order_id != data.get('order_id'):
+                update_databases_with_new_order(data.get('order_id'), order_id, payment_session_id, customer_phone, order_data)
+            
             return jsonify({
                 'order_id': order_id,
                 'payment_session_id': payment_session_id
@@ -173,13 +185,48 @@ def resume_payment():
         app.logger.error(f"An error occurred: {str(e)}")
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
 
+def update_databases_with_new_order(old_order_id, new_order_id, payment_session_id, customer_phone, old_order_data):
+    try:
+        # Update Realtime Database
+        ref = db.reference('orders')
+        ref.child(new_order_id).set(old_order_data)
+        ref.child(new_order_id).update({
+            'order_id': new_order_id,
+            'payment_session_id': payment_session_id,
+            'original_order_id': old_order_id
+        })
+
+        # Update Firestore
+        user_ref = firestore.client().collection('users').document(customer_phone)
+        user_ref.update({
+            f'orders.{new_order_id}': {
+                'order_id': new_order_id,
+                'order_ref': f'orders/{new_order_id}',
+                'order_time': old_order_data.get('order_time'),
+                'payment_status': 'pending',
+                'original_order_id': old_order_id
+            }
+        })
+
+        app.logger.info(f"Updated databases with new order {new_order_id} based on {old_order_id}")
+    except Exception as e:
+        app.logger.error(f"Error updating databases with new order: {str(e)}")
+
+
+
+
+
+    
+
+
+
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
     data = request.args.to_dict()
     order_id = data.get('order_id')
 
     # Verify the payment with Cashfree
-    payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
+    payment_verification_url = f'https://sandbox.cashfree.com/pg/orders/{order_id}'
     headers = {
         'x-client-id': CASHFREE_APP_ID,
         'x-client-secret': CASHFREE_SECRET_KEY,
@@ -202,6 +249,7 @@ def payment_response():
             'message': 'Payment verification failed',
             'order_id': order_id,
         })
+
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -228,6 +276,8 @@ def webhook():
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+
 
 def update_order_status(order_id, status, user_phone_number):
     try:
@@ -239,6 +289,9 @@ def update_order_status(order_id, status, user_phone_number):
         logging.info(f"Order {order_id} updated with payment status: {status}")
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
+
+
+
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
@@ -263,5 +316,7 @@ def payment_notification():
         logging.error(f"Error processing payment notification: {e}")
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
+
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)  # False for production
+    app.run(debug=True, host='127.0.0.1', port=5000) # False for production
+    # host='127.0.0.1', port=5000
