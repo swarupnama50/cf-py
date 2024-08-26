@@ -8,6 +8,7 @@ import logging
 import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
+import uuid
 
 # Read and decode the Firebase key
 firebase_key_base64 = os.getenv('FIREBASE_KEY_BASE64')
@@ -31,6 +32,12 @@ CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
 
+def generate_new_order_id(existing_order_id):
+    # Generate a new unique code and append it to the existing order ID
+    new_unique_code = str(uuid.uuid4())[:8]  # Shorten the UUID for readability
+    new_order_id = f"{existing_order_id}_new{new_unique_code}"
+    return new_order_id
+
 @app.route('/create_order', methods=['POST'])
 def create_order():
     try:
@@ -47,6 +54,15 @@ def create_order():
             'x-client-secret': CASHFREE_SECRET_KEY,
             'x-api-version': '2023-08-01'
         }
+
+        # Check if the order ID already exists
+        order_ref = db.collection('orders').document(order_id)
+        order_doc = order_ref.get()
+
+        if order_doc.exists:
+            # If the order ID exists, generate a new order ID
+            logging.info(f"Order ID {order_id} exists. Generating a new order ID.")
+            order_id = generate_new_order_id(order_id)
 
         payload = {
             'order_id': order_id,
@@ -86,10 +102,6 @@ def create_order():
 
     except Exception as e:
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
-
-
-
-
 
 @app.route('/resume_payment', methods=['POST'])
 def resume_payment():
@@ -161,14 +173,6 @@ def resume_payment():
         app.logger.error(f"An error occurred: {str(e)}")
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
 
-
-
-
-
-    
-
-
-
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
     data = request.args.to_dict()
@@ -199,7 +203,6 @@ def payment_response():
             'order_id': order_id,
         })
 
-
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
@@ -225,8 +228,6 @@ def webhook():
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
-    
-
 
 def update_order_status(order_id, status, user_phone_number):
     try:
@@ -238,9 +239,6 @@ def update_order_status(order_id, status, user_phone_number):
         logging.info(f"Order {order_id} updated with payment status: {status}")
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
-
-
-
 
 @app.route('/payment_notification', methods=['POST'])
 def payment_notification():
@@ -265,7 +263,5 @@ def payment_notification():
         logging.error(f"Error processing payment notification: {e}")
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
-
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000) # False for production
-    # host='127.0.0.1', port=5000
+    app.run(debug=True, host='127.0.0.1', port=5000)  # False for production

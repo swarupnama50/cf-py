@@ -1,3 +1,20 @@
+127.0.0.1 - - [26/Aug/2024:03:38:43 +0000] "OPTIONS /resume_payment HTTP/1.1" 200 0 "https://teerkhelo.web.app/" "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+DEBUG:app:Resume payment started
+DEBUG:app:Data received: order_id=3rd73256c, customer_name=3rd dfg f, customer_phone=+913333333333
+DEBUG:app:Checking if order exists in Firestore
+INFO:app:Order 3rd73256c already exists.
+DEBUG:app:Creating new payment session ID
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): api.cashfree.com:443
+DEBUG:urllib3.connectionpool:https://api.cashfree.com:443 "POST /pg/orders HTTP/11" 409 113
+DEBUG:app:Response status code: 409
+DEBUG:app:Response data: {'message': 'order with same id is already present', 'code': 'order_already_exists', 'type': 'invalid_request_error'}
+127.0.0.1 - - [26/Aug/2024:03:38:44 +0000] "POST /resume_payment HTTP/1.1" 409 50 "https://teerkhelo.web.app/" "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+
+
+
+
+
+
 
 - - [25/Aug/2024:15:09:20 +0000] "OPTIONS /resume_payment HTTP/1.1" 200 0 "https://teerkhelo.web.app/" "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
 DEBUG:app:Headers: {'Content-Type': 'application/json', 'x-client-id': '43164923522f23791291250105946134', 'x-client-secret': 'cfsk_ma_prod_6c5dee4d827cccf049da433c3bc82567_d46b2ff8', 'x-api-version': '2023-08-01'}
@@ -12,7 +29,22 @@ DEBUG:app:Response data: {'message': 'order with same id is already present', 'c
 
 
 
-
+INFO:werkzeug:127.0.0.1 - - [26/Aug/2024 08:54:27] "OPTIONS /resume_payment HTTP/1.1" 200 -
+DEBUG:app:Resume payment started
+DEBUG:app:Data received: order_id=3rd2219d8, customer_name=3rd dfg f, customer_phone=+913333333333    
+DEBUG:app:Checking if order exists in Firestore
+DEBUG:google.auth.transport.requests:Making request: POST https://oauth2.googleapis.com/token
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): oauth2.googleapis.com:443
+DEBUG:urllib3.connectionpool:https://oauth2.googleapis.com:443 "POST /token HTTP/11" 200 None
+INFO:app:Order 3rd2219d8 already exists.
+DEBUG:app:Creating new payment session ID
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): sandbox.cashfree.com:443
+DEBUG:urllib3.connectionpool:https://sandbox.cashfree.com:443 "POST /pg/orders HTTP/11" 200 808
+DEBUG:app:Response status code: 200
+DEBUG:app:Response data: {'cart_details': None, 'cf_order_id': '2183619383', 'created_at': '2024-08-26T08:59:27+05:30', 'customer_details': {'customer_id': 'customer_3rd2219d8', 'customer_name': '3rd dfg 
+f', 'customer_email': '+913333333333@example.com', 'customer_phone': '+913333333333', 'customer_uid': 
+None}, 'entity': 'order', 'order_amount': 1.0, 'order_currency': 'INR', 'order_expiry_time': '2024-09-25T08:59:27+05:30', 'order_id': '3rd2219d8', 'order_meta': {'return_url': 'http://localhost:1898/payment_response?order_id=3rd2219d8', 'notify_url': 'https://cf-py-bvfc.onrender.com/webhook', 'payment_methods': None}, 'order_note': None, 'order_splits': [], 'order_status': 'ACTIVE', 'order_tags': None, 'payment_session_id': 'session_yu-GSSQvkjtRIX9gPR00F_OyTIo055iyBl5emavI01GMf6TkYOP3uG9HTXVYVjFmXyuFoY1YZmXO7kouIOl0GNfBtFKDzEIhvDLMpnKzkjzs', 'terminal_data': None}
+INFO:werkzeug:127.0.0.1 - - [26/Aug/2024 08:54:30] "POST /resume_payment HTTP/1.1" 200 -
 
 
 
