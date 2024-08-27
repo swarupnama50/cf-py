@@ -13,26 +13,10 @@ https://cf-py.onrender.com
 https://cf-py.onrender.com/webhook
 
 
+CASHFREE_APP_ID=TEST364766bc0348a23dbf5fafa50c667463
+CASHFREE_SECRET_KEY=cfsk_ma_test_b4f1b6e255ca5fffeec128b234e63291_77cc12f3
 
-# @app.route('/payment_notification', methods=['POST'])
-# def payment_notification():
-#     try:
-#         data = request.json
-#         order_id = data.get('order_id')
-#         payment_status = data.get('payment_status')
 
-#         if order_id and payment_status:
-#             if payment_status == 'SUCCESS':
-#                 # Update the order status in Firestore
-#                 orders_ref = db.collection('orders')
-#                 order_ref = orders_ref.document(order_id)
-#                 order_ref.update({'payment_status': 'Order Completed'})
-#                 return jsonify({'status': 'success', 'message': 'Payment status updated'}), 200
-#             else:
-#                 # Handle other statuses or errors as needed
-#                 return jsonify({'status': 'failure', 'message': 'Payment not successful'}), 200
-#         else:
-#             return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
-#     except Exception as e:
-#         logging.error(f"Error processing payment notification: {e}")
-#         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+CASHFREE_APP_ID=43164923522f23791291250105946134
+CASHFREE_SECRET_KEY=cfsk_ma_prod_6c5dee4d827cccf049da433c3bc82567_d46b2ff8

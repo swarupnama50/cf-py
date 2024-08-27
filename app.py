@@ -216,11 +216,6 @@ def update_databases_with_new_order(old_order_id, new_order_id, payment_session_
 
 
 
-
-    
-
-
-
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
     data = request.args.to_dict()
@@ -287,6 +282,11 @@ def update_order_status(order_id, status, user_phone_number):
         user_ref.update({
             f'orders.{order_id}.payment_status': status
         })
+
+         # Update Realtime Database
+        db.reference(f'orders/{order_id}/payment_status').set(status)
+
+
         logging.info(f"Order {order_id} updated with payment status: {status}")
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
