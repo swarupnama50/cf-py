@@ -10,6 +10,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
 
+
 # Read and decode the Firebase key
 firebase_key_base64 = os.getenv('FIREBASE_KEY_BASE64')
 if firebase_key_base64:
@@ -18,7 +19,6 @@ if firebase_key_base64:
     firebase_admin.initialize_app(cred)
 else:
     raise ValueError("FIREBASE_KEY_BASE64 environment variable is not set")
-
 db = firestore.client()
 
 load_dotenv()
@@ -27,19 +27,22 @@ logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 CORS(app)
-
 CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
+# CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
 
+# CREATE ORDER
 @app.route('/create_order', methods=['POST'])
 def create_order():
     try:
         data = request.json
         order_id = data.get('order_id')
-        user_phone_number = data.get('customer_phone')
+        customer_email = data.get('customer_phone')
+        customer_phone = '0000000000'
 
         return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+       #  return_url = f'http://localhost:1120/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -56,8 +59,8 @@ def create_order():
             'customer_details': {
                 'customer_id': data.get('customer_id', 'default_customer_id'),
                 'customer_name': data.get('customer_name'),
-                'customer_email': data.get('customer_email'),
-                'customer_phone': user_phone_number
+                'customer_email': customer_email,
+                'customer_phone': customer_phone
             },
             'order_meta': {
                 'return_url': return_url,
@@ -90,9 +93,7 @@ def create_order():
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
 
 
-
-
-
+# RESUME PAYMENT
 @app.route('/resume_payment', methods=['POST'])
 def resume_payment():
     try:
@@ -106,6 +107,7 @@ def resume_payment():
         app.logger.debug(f"Data received: order_id={order_id}, customer_name={customer_name}, customer_phone={customer_phone}")
 
         return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+        # return_url = f'http://localhost:1120/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -140,7 +142,7 @@ def resume_payment():
                             'customer_details': {
                                 'customer_id': f'customer_{new_order_id}',
                                 'customer_name': customer_name,
-                                'customer_email': f'{customer_phone}@example.com',
+                                'customer_email': f'{customer_phone}',
                                 'customer_phone': customer_phone
                             },
                             'order_meta': {
@@ -185,7 +187,9 @@ def resume_payment():
     except Exception as e:
         app.logger.error(f"An error occurred: {str(e)}")
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
+    
 
+# Update_Databases
 def update_databases_with_new_order(old_order_id, new_order_id, payment_session_id, customer_phone, old_order_data):
     try:
         # Update Realtime Database
@@ -215,7 +219,6 @@ def update_databases_with_new_order(old_order_id, new_order_id, payment_session_
 
 
 
-
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
     data = request.args.to_dict()
@@ -223,6 +226,7 @@ def payment_response():
 
     # Verify the payment with Cashfree
     payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
+    # payment_verification_url = f'https://sandbox.cashfree.com/pg/orders/{order_id}'
     headers = {
         'x-client-id': CASHFREE_APP_ID,
         'x-client-secret': CASHFREE_SECRET_KEY,
@@ -319,5 +323,6 @@ def payment_notification():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000) # False for production
-    # host='127.0.0.1', port=5000
+    app.run(debug=False)
+    # app.run(debug=True, host='127.0.0.1', port=5000)
+    
