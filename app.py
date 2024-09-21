@@ -31,8 +31,8 @@ app = Flask(__name__)
 CORS(app)
 CASHFREE_APP_ID = os.getenv('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
-# CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
-CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
+CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
+# CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
 
 # CREATE ORDER
 @app.route('/create_order', methods=['POST'])
@@ -43,8 +43,8 @@ def create_order():
         customer_email = data.get('customer_phone')
         customer_phone = '0000000000'
 
-        # return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
-        return_url = f'http://localhost:13829/payment_response?order_id={order_id}'
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+        # return_url = f'http://localhost:9538/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -102,13 +102,13 @@ def resume_payment():
         app.logger.debug("Resume payment started")
         data = request.json
         order_id = data.get('order_id')
-        customer_phone = data.get('customer_phone')
+        customer_email = data.get('customer_email')
         
 
-        app.logger.debug(f"Data received: order_id={order_id}, customer_phone={customer_phone}")
+        app.logger.debug(f"Data received: order_id={order_id}, customer_email={customer_email}")
 
-        # return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
-        return_url = f'http://localhost:13829/payment_response?order_id={order_id}'
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+        # return_url = f'http://localhost:9538/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -120,7 +120,7 @@ def resume_payment():
 
         # Check if order exists in Firestore
         app.logger.debug("Checking if order exists in Firestore")
-        user_ref = db.collection('users').document(customer_phone)
+        user_ref = db.collection('users').document(customer_email)
         user_doc = user_ref.get()
 
         if user_doc.exists:
@@ -165,8 +165,8 @@ def resume_payment():
                     'customer_details': {
                         'customer_id': f'customer_{new_order_id}',
                         'customer_name': user_data.get('name', 'Customer'),
-                        'customer_email': user_data.get('email', ''),
-                        'customer_phone': customer_phone
+                        'customer_email': user_data.get('customer_email'),
+                        'customer_email': customer_email
                     },
                     'order_meta': {
                         'return_url': return_url,
@@ -215,8 +215,7 @@ def resume_payment():
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
     
 
-# Update_Databases
-def update_databases_with_new_order(old_order_id, new_order_id, payment_session_id, customer_phone, old_order_data):
+def update_databases_with_new_order(old_order_id, new_order_id, payment_session_id, customer_email, old_order_data):
     try:
         # Update Realtime Database
         ref = db.reference('orders')
@@ -228,7 +227,7 @@ def update_databases_with_new_order(old_order_id, new_order_id, payment_session_
         })
 
         # Update Firestore
-        user_ref = firestore.client().collection('users').document(customer_phone)
+        user_ref = firestore.client().collection('users').document(customer_email)
         user_ref.update({
             f'orders.{new_order_id}': {
                 'order_id': new_order_id,
@@ -245,14 +244,15 @@ def update_databases_with_new_order(old_order_id, new_order_id, payment_session_
 
 
 
+
 @app.route('/payment_response', methods=['GET'])
 def payment_response():
     data = request.args.to_dict()
     order_id = data.get('order_id')
 
-    # # Verify the payment with Cashfree
-    # payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
-    payment_verification_url = f'https://sandbox.cashfree.com/pg/orders/{order_id}'
+    # Verify the payment with Cashfree
+    payment_verification_url = f'https://api.cashfree.com/pg/orders/{order_id}'
+    # payment_verification_url = f'https://sandbox.cashfree.com/pg/orders/{order_id}'
     headers = {
         'x-client-id': CASHFREE_APP_ID,
         'x-client-secret': CASHFREE_SECRET_KEY,
@@ -277,30 +277,6 @@ def payment_response():
         })
 
 
-
-def update_order_status(order_id, status, customer_email):  # Change to email
-    try:
-        logging.debug(f"Attempting to update order status for order_id: {order_id}, status: {status}, user_email: {customer_email}")
-
-        # Update Firestore
-        user_ref = db.collection('users').document(customer_email)  # Use email
-        if user_ref.get().exists:
-            logging.debug(f"User document found for email: {customer_email}. Proceeding to update.")
-            user_ref.update({
-                f'orders.{order_id}.payment_status': status
-            })
-            logging.info(f"Successfully updated Firestore for order {order_id} with status: {status}")
-        else:
-            logging.error(f"User document not found for email: {customer_email}")
-
-        # Update Realtime Database
-        logging.debug(f"Updating Realtime Database for order: {order_id} with status: {status}")
-        db.reference(f'orders/{order_id}/payment_status').set(status)
-        logging.info(f"Successfully updated Realtime Database for order {order_id} with status: {status}")
-
-    except Exception as e:
-        logging.error(f"Error updating order status for order_id {order_id}: {e}")
-
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
@@ -309,26 +285,41 @@ def webhook():
 
         order_id = data.get('data', {}).get('order', {}).get('order_id')
         payment_status = data.get('data', {}).get('payment', {}).get('payment_status')
-        customer_email = data.get('data', {}).get('customer_details', {}).get('customer_email')  # Change to email
-
-        logging.debug(f"Webhook parsed: order_id={order_id}, payment_status={payment_status}, customer_email={customer_email}")
+        customer_email = data.get('data', {}).get('customer_details', {}).get('customer_email')
 
         if not order_id or not payment_status or not customer_email:
             logging.error("Required data is missing in the webhook.")
             return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
 
         # Update the payment status
-        logging.debug(f"Updating payment status for order_id: {order_id} with payment_status: {payment_status}")
-        update_order_status(order_id, payment_status, customer_email)
+        if payment_status == 'SUCCESS':
+            update_order_status(order_id, 'Order Completed', customer_email)
+        else:
+            update_order_status(order_id, payment_status.capitalize(), customer_email)
 
         return jsonify({'status': 'success'}), 200
 
     except Exception as e:
         logging.error(f"Error processing webhook: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+    
 
 
+def update_order_status(order_id, status, customer_email):
+    try:
+        # Update the specific order document under the user's document
+        user_ref = db.collection('users').document(customer_email)
+        user_ref.update({
+            f'orders.{order_id}.payment_status': status
+        })
 
+         # Update Realtime Database
+        db.reference(f'orders/{order_id}/payment_status').set(status)
+
+
+        logging.info(f"Order {order_id} updated with payment status: {status}")
+    except Exception as e:
+        logging.error(f"Error updating order status: {e}")
 
 
 
@@ -358,6 +349,5 @@ def payment_notification():
 
 
 if __name__ == '__main__':
-    # app.run(debug=False)
-    app.run(debug=True, host='127.0.0.1', port=5000)
-    
+    app.run(debug=False)
+    # app.run(debug=True, host='127.0.0.1', port=5000)

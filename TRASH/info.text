@@ -1,3 +1,12 @@
+DEBUG:root:Received webhook data: {'data': {'order': {'order_id': 'hsdfb70141', 'order_amount': 10.0, 'order_currency': 'INR', 'order_tags': None}, 'payment': {'cf_payment_id': 5114911375427, 'payment_status': 'SUCCESS', 'payment_amount': 10.0, 'payment_currency': 'INR', 'payment_message': 'Simulated response message', 'payment_time': '2024-09-21T10:27:13+05:30', 'bank_reference': '1234567890', 'auth_id': None, 'payment_method': {'upi': {'channel': None, 'upi_id': 'testsuccess@gocash'}}, 'payment_group': 'upi'}, 'customer_details': {'customer_name': 'hsdf', 'customer_id': 'default_customer_id', 'customer_email': 'hello8@gmail.com', 'customer_phone': '0000000000'}, 'charges_details': {'service_charge': 0.19, 'service_tax': 0.03, 'settlement_amount': 9.78, 'settlement_currency': 'INR', 'service_charge_discount': None}}, 'event_time': '2024-09-21T10:27:31+05:30', 'type': 'PAYMENT_CHARGES_WEBHOOK'}
+DEBUG:root:Webhook parsed: order_id=hsdfb70141, payment_status=SUCCESS, customer_phone=0000000000
+DEBUG:root:Attempting to update order status for order_id: hsdfb70141, status: Order Completed, user_phone: 0000000000
+ERROR:root:Error updating order status for order_id hsdfb70141: 404 No document to update: projects/teerkhelo/databases/(default)/documents/users/0000000000
+
+
+
+
+
 127.0.0.1 - - [26/Aug/2024:03:38:43 +0000] "OPTIONS /resume_payment HTTP/1.1" 200 0 "https://teerkhelo.web.app/" "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
 DEBUG:app:Resume payment started
 DEBUG:app:Data received: order_id=3rd73256c, customer_name=3rd dfg f, customer_phone=+913333333333
