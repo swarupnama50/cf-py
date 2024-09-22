@@ -43,8 +43,8 @@ def create_order():
         # Use a dummy phone number for order creation
         dummy_phone_number = '0000000000'
 
-        return_url = f'https://teerkhelo.web.apppayment_response?order_id={order_id}'
-        # return_url = f'https://teerkhelo.web.apppayment_response?order_id={order_id}'
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
+        # return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
         headers = {
@@ -112,7 +112,7 @@ def resume_payment():
 
         # app.logger.debug(f"Data received: order_id={order_id}, customer_email={customer_email}")
 
-        return_url = f'https://teerkhelo.web.apppayment_response?order_id={order_id}'
+        return_url = f'https://teerkhelo.web.app/payment_response?order_id={order_id}'
         # return_url = f'http://localhost:9538/payment_response?order_id={order_id}'
         notify_url = 'https://cf-py-bvfc.onrender.com/webhook'
 
