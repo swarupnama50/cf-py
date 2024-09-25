@@ -279,6 +279,7 @@ def payment_response():
             'order_id': order_id,
         })
 
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
@@ -309,20 +310,24 @@ def webhook():
 
 def update_order_status(order_id, status, customer_email):
     try:
+        # Access the specific user document based on the email
         user_ref = db.collection('users').document(customer_email)
-        user_orders_ref = user_ref.collection('orders')
+        user_doc = user_ref.get()
 
-        logging.debug(f"Updating order {order_id} for user {customer_email}")
-
-        order_ref = user_orders_ref.document(order_id)
-
-        if order_ref.get().exists:
-            order_ref.update({
-                'payment_status': status
-            })
-            logging.info(f"Order {order_id} updated with payment status: {status}")
+        if user_doc.exists:
+            # Get the orders subcollection
+            orders = user_doc.to_dict().get('orders', {})
+            
+            if order_id in orders:
+                # Update the payment status for the specific order
+                user_ref.update({
+                    f'orders.{order_id}.payment_status': status
+                })
+                logging.info(f"Order {order_id} updated with payment status: {status}")
+            else:
+                logging.error(f"No matching order found for {order_id} under email {customer_email}")
         else:
-            logging.error(f"No matching order found for {order_id} and email {customer_email}")
+            logging.error(f"No user found with email {customer_email}")
     except Exception as e:
         logging.error(f"Error updating order status: {e}")
 
