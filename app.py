@@ -309,18 +309,17 @@ def webhook():
 
 def update_order_status(order_id, status, customer_email):
     try:
-        # Update the specific order document based on the email instead of phone
-        orders_ref = db.collection('orders')
-        query = orders_ref.where('customer_email', '==', customer_email).where('order_id', '==', order_id).limit(1)
-        results = query.get()
+        user_ref = db.collection('users').document(customer_email)
+        user_orders_ref = user_ref.collection('orders')
 
-        if results:
-            for doc in results:
-                order_ref = orders_ref.document(doc.id)
-                order_ref.update({
-                    'payment_status': status
-                })
+        logging.debug(f"Updating order {order_id} for user {customer_email}")
 
+        order_ref = user_orders_ref.document(order_id)
+
+        if order_ref.get().exists:
+            order_ref.update({
+                'payment_status': status
+            })
             logging.info(f"Order {order_id} updated with payment status: {status}")
         else:
             logging.error(f"No matching order found for {order_id} and email {customer_email}")

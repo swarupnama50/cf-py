@@ -20,3 +20,76 @@ CASHFREE_SECRET_KEY=cfsk_ma_test_b4f1b6e255ca5fffeec128b234e63291_77cc12f3
 
 CASHFREE_APP_ID=43164923522f23791291250105946134
 CASHFREE_SECRET_KEY=cfsk_ma_prod_6c5dee4d827cccf049da433c3bc82567_d46b2ff8
+
+
+
+
+def update_order_status(order_id, status, customer_email):
+    try:
+        user_ref = db.collection('users').document(customer_email)
+        user_orders_ref = user_ref.collection('orders')
+
+        logging.debug(f"Updating order {order_id} for user {customer_email}")
+
+        order_ref = user_orders_ref.document(order_id)
+
+        if order_ref.get().exists:
+            order_ref.update({
+                'payment_status': status
+            })
+            logging.info(f"Order {order_id} updated with payment status: {status}")
+        else:
+            logging.error(f"No matching order found for {order_id} and email {customer_email}")
+    except Exception as e:
+        logging.error(f"Error updating order status: {e}")
+
+
+
+def update_order_status(order_id, status, customer_email):
+    try:
+        # Access the specific user document based on the email
+        user_ref = db.collection('users').document(customer_email)
+        user_doc = user_ref.get()
+
+        if user_doc.exists:
+            # Get the orders subcollection
+            orders = user_doc.to_dict().get('orders', {})
+            
+            if order_id in orders:
+                # Update the payment status for the specific order
+                user_ref.update({
+                    f'orders.{order_id}.payment_status': status
+                })
+                logging.info(f"Order {order_id} updated with payment status: {status}")
+            else:
+                logging.error(f"No matching order found for {order_id} under email {customer_email}")
+        else:
+            logging.error(f"No user found with email {customer_email}")
+    except Exception as e:
+        logging.error(f"Error updating order status: {e}")
+        @app.route('/webhook', methods=['POST'])
+        
+def webhook():
+    try:
+        data = request.json
+        logging.debug(f"Received webhook data: {data}")
+
+        order_id = data.get('data', {}).get('order', {}).get('order_id')
+        payment_status = data.get('data', {}).get('payment', {}).get('payment_status')
+        customer_email = data.get('data', {}).get('customer_details', {}).get('customer_email')
+
+        if not order_id or not payment_status or not customer_email:
+            logging.error("Required data is missing in the webhook.")
+            return jsonify({'status': 'error', 'message': 'Invalid data received'}), 400
+
+        # Update the payment status
+        if payment_status == 'SUCCESS':
+            update_order_status(order_id, 'Order Completed', customer_email)
+        else:
+            update_order_status(order_id, payment_status.capitalize(), customer_email)
+
+        return jsonify({'status': 'success'}), 200
+
+    except Exception as e:
+        logging.error(f"Error processing webhook: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
