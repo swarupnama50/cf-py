@@ -33,6 +33,10 @@ CASHFREE_SECRET_KEY = os.getenv('CASHFREE_SECRET_KEY')
 CASHFREE_API_URL = "https://api.cashfree.com/pg/orders"
 # CASHFREE_API_URL = "https://sandbox.cashfree.com/pg/orders"
 
+@app.route('/')
+def home():
+    return "Application is running", 200
+
 @app.route('/create_order', methods=['POST'])
 def create_order():
     try:
